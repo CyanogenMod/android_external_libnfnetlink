@@ -21,7 +21,7 @@
 #include "libnfnetlink.h"
 
 #define nfnl_error(format, args...) \
-	fprintf(stderr, __FUNCTION__ ": " format "\n", ## args)
+	fprintf(stderr, "%s: " format "\n", __FUNCTION__, ## args)
 
 #ifdef _NFNL_DEBUG
 #define nfnl_debug_dump_packet nfnl_dump_packet
@@ -35,7 +35,7 @@ void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc)
 	struct nfattr *nfa = NFM_NFA(NLMSG_DATA(nlh));
 	int len = NFM_PAYLOAD(nlh);
 
-	printf(__FUNCTION__ " called from %s\n", desc);
+	printf("%s called from %s\n", __FUNCTION__, desc);
 	printf("  nlmsghdr = %p, received_len = %u\n", nlh, received_len);
 	printf("  NLMSG_DATA(nlh) = %p (+%u bytes)\n", nlmsg_data,
 	       (nlmsg_data - (void *)nlh));
@@ -250,13 +250,12 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 	return 0;
 }
 
-#if 0
 int nfnl_talk(struct nfnl_handle *nfnlh, struct nlmsghdr *n, pid_t peer,
 	      unsigned groups, struct nlmsghdr *answer,
 	      int (*junk)(struct sockaddr_nl *, struct nlmsghdr *n, void *),
 	      void *jarg)
 {
-	char buf[CTNL_BUFFSIZE];
+	char buf[NFNL_BUFFSIZE];
 	struct sockaddr_nl nladdr;
 	struct nlmsghdr *h;
 	unsigned int seq;
@@ -307,15 +306,65 @@ int nfnl_talk(struct nfnl_handle *nfnlh, struct nlmsghdr *n, pid_t peer,
 			return -1;
 		}
 
-		for (h = (struct nlmsghdr *)buf; status >= sizeof(*h)) {
+		for (h = (struct nlmsghdr *)buf; status >= sizeof(*h); ) {
 			int len = h->nlmsg_len;
 			int l = len - sizeof(*h);
 			int err;
 
-				
+			if (l < 0 || len > status) {
+				if (msg.msg_flags & MSG_TRUNC) {
+					nfnl_error("Truncated message\n");
+					return -1;
+				}
+				nfnl_error("Malformed message: len=%d\n", len);
+				return -1; /* FIXME: libnetlink exits here */
+			}
 
+			if (h->nlmsg_pid != nfnlh->local.nl_pid ||
+			    h->nlmsg_seq != seq) {
+				if (junk) {
+					err = junk(&nladdr, h, jarg);
+					if (err < 0)
+						return err;
+				}
+				continue;
+			}
+
+			if (h->nlmsg_type == NLMSG_ERROR) {
+				struct nlmsgerr *err = NLMSG_DATA(h);
+				if (l < sizeof(struct nlmsgerr))
+					nfnl_error("ERROR truncated\n");
+				else {
+					errno = -err->error;
+					if (errno == 0) {
+						if (answer)
+							memcpy(answer, h, h->nlmsg_len);
+						return 0;
+					}
+					perror("CTNETLINK answers");
+				}
+				return -1;
+			}
+			if (answer) {
+				memcpy(answer, h, h->nlmsg_len);
+				return 0;
+			}
+
+			nfnl_error("Unexpected reply!\n");
+
+			status -= NLMSG_ALIGN(len);
+			h = (struct nlmsghdr *)((char *)h + NLMSG_ALIGN(len));
+		}
+		if (msg.msg_flags & MSG_TRUNC) {
+			nfnl_error("Messages truncated\n");
+			continue;
+		}
+		if (status) {
+			nfnl_error("Remnant of size %d\n", status);
+			exit(1);
+		}
+	}
 }
-#endif
 
 /**
  * nfnl_addattr_l - Add variable length attribute to nlmsghdr

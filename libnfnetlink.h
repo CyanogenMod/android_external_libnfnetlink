@@ -22,37 +22,29 @@ struct nfnl_handle {
 };
 
 /* get a new library handle */
-extern int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
-		     unsigned int subscriptions);
-extern int nfnl_close(struct nfnl_handle *nfnlh);
-
-int nfnl_send(struct nfnl_handle *nfnlh, struct nlmsghdr *n);
+extern int nfnl_open(struct nfnl_handle *, u_int8_t, unsigned int);
+extern int nfnl_close(struct nfnl_handle *);
+extern int nfnl_send(struct nfnl_handle *, struct nlmsghdr *);
 
 
-void nfnl_fill_hdr(struct nfnl_handle *nfnlh,
-		   struct nlmsghdr *nlh, int len,
-		   u_int8_t family,
-		   u_int16_t msg_type,
-		   u_int16_t msg_flags);
+extern void nfnl_fill_hdr(struct nfnl_handle *, struct nlmsghdr *, int,
+                          u_int8_t, u_int16_t, u_int16_t);
 
-int nfnl_listen(struct nfnl_handle *nfnlh,
-		int (*handler)(struct sockaddr_nl *, struct nlmsghdr *n,
-			       void *), void *jarg);
+extern int nfnl_listen(struct nfnl_handle *,
+                      int (*)(struct sockaddr_nl *, struct nlmsghdr *, void *),
+                      void *);
 
-
-
+extern int nfnl_talk(struct nfnl_handle *, struct nlmsghdr *, pid_t,
+                     unsigned, struct nlmsghdr *,
+                     int (*)(struct sockaddr_nl *, struct nlmsghdr *, void *),
+                     void *);
 
 /* nfnl attribute handling functions */
-int nfnl_addattr_l(struct nlmsghdr *n, int maxlen, int type, void *data,
-		   int alen);
-int nfnl_addattr32(struct nlmsghdr *n, int maxlen, int type,
-		   u_int32_t data);
-int nfnl_nfa_addattr_l(struct nfattr *nfa, int maxlen, int type, void *data,
-		       int alen);
-int nfnl_nfa_addattr32(struct nfattr *nfa, int maxlen, int type, 
-		       u_int32_t data);
-int nfnl_parse_attr(struct nfattr *tb[], int max, struct nfattr *nfa, int len);
+extern int nfnl_addattr_l(struct nlmsghdr *, int, int, void *, int);
+extern int nfnl_addattr32(struct nlmsghdr *, int, int, u_int32_t);
+extern int nfnl_nfa_addattr_l(struct nfattr *, int, int, void *, int);
+extern int nfnl_nfa_addattr32(struct nfattr *, int, int, u_int32_t);
+extern int nfnl_parse_attr(struct nfattr **, int, struct nfattr *, int);
 
-void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc);
-
+extern void nfnl_dump_packet(struct nlmsghdr *, int, char *);
 #endif /* __LIBNFNETLINK_H */
