@@ -53,4 +53,6 @@ int nfnl_nfa_addattr32(struct nfattr *nfa, int maxlen, int type,
 		       u_int32_t data);
 int nfnl_parse_attr(struct nfattr *tb[], int max, struct nfattr *nfa, int len);
 
+void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc);
+
 #endif /* __LIBNFNETLINK_H */

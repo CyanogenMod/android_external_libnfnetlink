@@ -1,3 +1,13 @@
+/* libnfnetlink.c: generic library for communication with netfilter
+ *
+ * (C) 2001 by Jay Schulist <jschlst@samba.org>
+ * (C) 2002 by Harald Welte <laforge@gnumonks.org>
+ *
+ * Development of this code funded by Astaro AG (http://www.astaro.com)
+ *
+ * this software may be used and distributed according to the terms
+ * of the gnu general public license, incorporated herein by reference.
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,6 +23,43 @@
 #define nfnl_error(format, args...) \
 	fprintf(stderr, __FUNCTION__ ": " format "\n", ## args)
 
+#ifdef _NFNL_DEBUG
+#define nfnl_debug_dump_packet nfnl_dump_packet
+#else
+#define nfnl_debug_dump_packet(a, b, ...)
+#endif
+
+void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc)
+{
+	void *nlmsg_data = NLMSG_DATA(nlh);
+	struct nfattr *nfa = NFM_NFA(NLMSG_DATA(nlh));
+	int len = NFM_PAYLOAD(nlh);
+
+	printf(__FUNCTION__ " called from %s\n", desc);
+	printf("  nlmsghdr = %p, received_len = %u\n", nlh, received_len);
+	printf("  NLMSG_DATA(nlh) = %p (+%u bytes)\n", nlmsg_data,
+	       (nlmsg_data - (void *)nlh));
+	printf("  NFM_NFA(NLMSG_DATA(nlh)) = %p (+%u bytes)\n",
+		nfa, ((void *)nfa - (void *)nlh));
+	printf("  nlmsg_type = %u, nlmsg_len = %u, nlmsg_seq = %u "
+		"nlmsg_flags = 0x%x\n", nlh->nlmsg_type, nlh->nlmsg_len,
+		nlh->nlmsg_seq, nlh->nlmsg_flags);
+
+	while (NFA_OK(nfa, len)) {
+		printf("    nfa@%p: nfa_type=%u, nfa_len=%u\n",
+			nfa, nfa->nfa_type, nfa->nfa_len);
+		nfa = NFA_NEXT(nfa,len);
+	}
+}
+
+/**
+ * nfnl_open - open a netlink socket
+ *
+ * nfnlh: libnfnetlink handle to be allocated by user
+ * subsys_id: which nfnetlink subsystem we are interested in
+ * subscriptions: netlink groups we want to be subscribed to
+ *
+ */
 int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 	      u_int32_t subscriptions)
 {
@@ -53,6 +100,12 @@ int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 	return 0;
 }
 
+/**
+ * nfnl_close - close netlink socket
+ *
+ * nfnlh: libnfnetlink handle
+ *
+ */
 int nfnl_close(struct nfnl_handle *nfnlh)
 {
 	if (nfnlh->fd)
@@ -61,6 +114,12 @@ int nfnl_close(struct nfnl_handle *nfnlh)
 	return 0;
 }
 
+/**
+ * nfnl_send - send a nfnetlink message through netlink socket
+ *
+ * nfnlh: libnfnetlink handle
+ * n: netlink message
+ */
 int nfnl_send(struct nfnl_handle *nfnlh, struct nlmsghdr *n)
 {
 	struct sockaddr_nl nladdr;
@@ -68,10 +127,26 @@ int nfnl_send(struct nfnl_handle *nfnlh, struct nlmsghdr *n)
 	memset(&nladdr, 0, sizeof(nladdr));
 	nladdr.nl_family = AF_NETLINK;
 
+	nfnl_debug_dump_packet(n, n->nlmsg_len+sizeof(*n), "nfnl_send");
+
 	return sendto(nfnlh->fd, n, n->nlmsg_len, 0, 
 		      (struct sockaddr *)&nladdr, sizeof(nladdr));
 }
 
+/**
+ * nfnl_fill_hdr - fill in netlink and nfnetlink header
+ *
+ * nfnlh: libnfnetlink handle
+ * nlh: netlink header to be filled in
+ * len: length of _payload_ bytes (not including nfgenmsg)
+ * family: AF_INET / ...
+ * msg_type: nfnetlink message type (without subsystem)
+ * msg_flags: netlink message flags
+ *
+ * NOTE: the nlmsghdr must point to a memory region of at least
+ * the size of struct nlmsghdr + struct nfgenmsg
+ *
+ */
 void nfnl_fill_hdr(struct nfnl_handle *nfnlh,
 		    struct nlmsghdr *nlh, int len, 
 		    u_int8_t family,
@@ -81,7 +156,7 @@ void nfnl_fill_hdr(struct nfnl_handle *nfnlh,
 	struct nfgenmsg *nfg = (struct nfgenmsg *) 
 					((void *)nlh + sizeof(*nlh));
 
-	nlh->nlmsg_len = NLMSG_LENGTH(len);
+	nlh->nlmsg_len = NLMSG_LENGTH(len+sizeof(*nfg));
 	nlh->nlmsg_type = (nfnlh->subsys_id<<8)|msg_type;
 	nlh->nlmsg_flags = msg_flags;
 	nlh->nlmsg_pid = 0;
@@ -91,6 +166,14 @@ void nfnl_fill_hdr(struct nfnl_handle *nfnlh,
 
 }
 
+/**
+ * nfnl_listen: listen for one or more netlink messages
+ *
+ * nfnhl: libnfnetlink handle
+ * handler: callback function to be called for every netlink message
+ * jarg: opaque argument passed on to callback
+ *
+ */
 int nfnl_listen(struct nfnl_handle *nfnlh,
 		int (*handler)(struct sockaddr_nl *, struct nlmsghdr *n,
 			       void *), void *jarg)
@@ -150,6 +233,7 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 				return err;
 		
 			/* FIXME: why not _NEXT macros, etc.? */
+			//h = NLMSG_NEXT(h, remain);
 			remain -= NLMSG_ALIGN(len);
 			h = (struct nlmsghdr *)((char *)h + NLMSG_ALIGN(len));
 		}
@@ -197,7 +281,7 @@ int nfnl_talk(struct nfnl_handle *nfnlh, struct nlmsghdr *n, pid_t peer,
 	if (!answer)
 		n->nlmsg_flags |= NLM_F_ACK;
 
-	status = snedmsg(nfnlh->fd, &msg, 0);
+	status = sendmsg(nfnlh->fd, &msg, 0);
 	if (status < 0) {
 		nfnl_error("sendmsg(netlink) %s", strerror(errno));
 		return -1;
@@ -233,6 +317,16 @@ int nfnl_talk(struct nfnl_handle *nfnlh, struct nlmsghdr *n, pid_t peer,
 }
 #endif
 
+/**
+ * nfnl_addattr_l - Add variable length attribute to nlmsghdr
+ *
+ * n: netlink message header to which attribute is to be added
+ * maxlen: maximum length of netlink message header
+ * type: type of new attribute
+ * data: content of new attribute
+ * alen: attribute length
+ *
+ */
 int nfnl_addattr_l(struct nlmsghdr *n, int maxlen, int type, void *data,
 		   int alen)
 {
@@ -254,6 +348,16 @@ int nfnl_addattr_l(struct nlmsghdr *n, int maxlen, int type, void *data,
 	return 0;
 }
 
+/**
+ * nfnl_nfa_addattr_l - Add variable length attribute to struct nfattr 
+ *
+ * nfa: struct nfattr
+ * maxlen: maximal length of nfattr buffer
+ * type: type for new attribute
+ * data: content of new attribute
+ * alen: length of new attribute
+ *
+ */
 int nfnl_nfa_addattr_l(struct nfattr *nfa, int maxlen, int type, void *data,
 		       int alen)
 {
