@@ -1,0 +1,27 @@
+Infrastructure libnfnetlink / libctnetlink
+
+libnfnetlink
+- provides low layer communications between netlink socket and high layer
+  library
+- provides generic functions to create and parse nf_attr's
+- hides all details of netlink socket
+- provides open/close/receive/listen functions only to be used by other 
+  libraries (libctnetlink/libpkttnetlink/...)
+
+
+libctnetlink:
+- provides high layer interface for applications interfacing with conntrack
+  kernel code
+- event messages (to be implemented)
+- reading and deleting ip_conntrack's
+- reading, deleting and creating ip_conntrack_expect's
+
+
+
+
+
+Layout of nfnetlink data packet
+
+
+struct nlmsghdr		- netlink internal 
+struct nfgenmsg		- information about 

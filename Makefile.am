@@ -1,14 +1,22 @@
-AUTOMAKE_OPTIONS = foreign
+AUTOMAKE_OPTIONS = no-dependencies foreign
 
-EXTRA_DIST 	=  $(man_MANS)
-INCLUDES	= -I$(top_srcdir)/include
-CFLAGS		= -fPIC -Wall
-LIBS		=
+EXTRA_DIST = $(man_MANS) acinclude.m4
 
-lib_LTLIBRARIES =
+man_MANS =
 
-#libnfnetlink_la_LDFLAGS = -Wc,-nostartfiles -release $(VERSION)
-#libnfnetlink_la_SOURCES = libnfnetlink.c
+INCLUDES=-I../include
+CFLAGS=-fPIC -Wall
+LIBS=
 
-include_HEADERS =
-man_MANS 	=
+lib_LTLIBRARIES = libnfnetlink.la
+
+libnfnetlink_la_LDFLAGS = -Wc,-nostartfiles
+libnfnetlink_la_SOURCES = libnfnetlink.c
+
+include_HEADERS = libnfnetlink.h 
+
+man_MANS = #nfnetlink.3 nfnetlink.7
+
+$(OBJECTS): libtool
+libtool: $(LIBTOOL_DEPS)
+	$(SHELL) ./config.status --recheck
