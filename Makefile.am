@@ -4,7 +4,7 @@ EXTRA_DIST = $(man_MANS) acinclude.m4
 
 man_MANS =
 
-INCLUDES=-I../include
+INCLUDES=-I../include -I/lib/modules/$(shell (uname -r))/build/include
 CFLAGS=-fPIC -Wall
 LIBS=
 
