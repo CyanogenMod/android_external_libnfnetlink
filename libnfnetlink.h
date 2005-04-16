@@ -8,7 +8,7 @@
 
 #include <linux/types.h>
 #include <linux/netlink.h>
-#include <linux/nfnetlink.h>
+#include <linux/netfilter/nfnetlink.h>
 
 #define NFNL_BUFFSIZE		8192
 
