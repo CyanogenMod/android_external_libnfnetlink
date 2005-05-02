@@ -183,6 +183,7 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 	struct iovec iov;
 	int remain;
 	struct nlmsghdr *h;
+	struct nlmsgerr *msgerr;
 
 	struct msghdr msg = {
 		(void *)&nladdr, sizeof(nladdr),
@@ -226,6 +227,17 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 				}
 				nfnl_error("Malformed msg (len=%d)", len);
 				return -1;
+			}
+
+			/* end of messages reached, let's return */
+			if (h->nlmsg_type == NLMSG_DONE)
+				return -100;
+
+			/* Break the loop if success is explicitely
+			 * reported via NLM_F_ACK flag set */
+			if (h->nlmsg_type == NLMSG_ERROR) {
+				msgerr = NLMSG_DATA(h);
+				return msgerr->error;
 			}
 
 			err = handler(&nladdr, h, jarg);
