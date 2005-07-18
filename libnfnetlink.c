@@ -108,10 +108,7 @@ int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
  */
 int nfnl_close(struct nfnl_handle *nfnlh)
 {
-	if (nfnlh->fd)
-		close(nfnlh->fd);
-
-	return 0;
+	return close(nfnlh->fd);
 }
 
 /**
@@ -202,6 +199,9 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 		if (remain < 0) {
 			if (errno == EINTR)
 				continue;
+			/* Bad file descriptor */
+			if (errno == EBADF)
+				break;
 			nfnl_error("recvmsg overrun");
 			continue;
 		}
@@ -231,7 +231,7 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 
 			/* end of messages reached, let's return */
 			if (h->nlmsg_type == NLMSG_DONE)
-				return -100;
+				return 0;
 
 			/* Break the loop if success is explicitely
 			 * reported via NLM_F_ACK flag set */
@@ -400,12 +400,11 @@ int nfnl_addattr_l(struct nlmsghdr *n, int maxlen, int type, void *data,
 		return -1;
 	}
 
-	nfa = (struct nfattr *)(((char *)n) + NLMSG_ALIGN(n->nlmsg_len));
+	nfa = NLMSG_TAIL(n);
 	nfa->nfa_type = type;
 	nfa->nfa_len = len;
 	memcpy(NFA_DATA(nfa), data, alen);
-	n->nlmsg_len = (NLMSG_ALIGN(n->nlmsg_len) + len);
-
+	n->nlmsg_len = (NLMSG_ALIGN(n->nlmsg_len) + NFA_ALIGN(len));
 	return 0;
 }
 
@@ -482,7 +481,7 @@ int nfnl_parse_attr(struct nfattr *tb[], int max, struct nfattr *nfa, int len)
 {
 	while (NFA_OK(nfa, len)) {
 		if (nfa->nfa_type <= max)
-			tb[nfa->nfa_type] = nfa;
+			tb[nfa->nfa_type-1] = nfa;
                 nfa = NFA_NEXT(nfa,len);
 	}
 	if (len)
