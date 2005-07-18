@@ -10,6 +10,9 @@
 #include <linux/netlink.h>
 #include <linux/netfilter/nfnetlink.h>
 
+#define NLMSG_TAIL(nlh) \
+	((void *) (nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len)
+
 #define NFNL_BUFFSIZE		8192
 
 struct nfnl_handle {
@@ -45,6 +48,12 @@ extern int nfnl_addattr32(struct nlmsghdr *, int, int, u_int32_t);
 extern int nfnl_nfa_addattr_l(struct nfattr *, int, int, void *, int);
 extern int nfnl_nfa_addattr32(struct nfattr *, int, int, u_int32_t);
 extern int nfnl_parse_attr(struct nfattr **, int, struct nfattr *, int);
+#define nfnl_nest(nlh, bufsize, type) 				\
+({	struct nfattr *__start = NLMSG_TAIL(nlh);		\
+	nfnl_addattr_l(nlh, bufsize, type, NULL, 0); 		\
+	__start; })
+#define nfnl_nest_end(nlh, tail) 				\
+({	(tail)->nfa_len = (void *) NLMSG_TAIL(nlh) - (void *) tail; })
 
 extern void nfnl_dump_packet(struct nlmsghdr *, int, char *);
 #endif /* __LIBNFNETLINK_H */
