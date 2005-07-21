@@ -1,7 +1,7 @@
 /* libnfnetlink.c: generic library for communication with netfilter
  *
  * (C) 2001 by Jay Schulist <jschlst@samba.org>
- * (C) 2002 by Harald Welte <laforge@gnumonks.org>
+ * (C) 2002-2005 by Harald Welte <laforge@gnumonks.org>
  *
  * Development of this code funded by Astaro AG (http://www.astaro.com)
  *
@@ -63,7 +63,8 @@ void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc)
 int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 	      u_int32_t subscriptions)
 {
-	int err, addr_len;
+	int err;
+	unsigned int addr_len;
 	
 	memset(nfnlh, 0, sizeof(*nfnlh));
 	nfnlh->fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_NETFILTER);
@@ -137,6 +138,7 @@ int nfnl_send(struct nfnl_handle *nfnlh, struct nlmsghdr *n)
  * nlh: netlink header to be filled in
  * len: length of _payload_ bytes (not including nfgenmsg)
  * family: AF_INET / ...
+ * res_id: resource id
  * msg_type: nfnetlink message type (without subsystem)
  * msg_flags: netlink message flags
  *
@@ -145,8 +147,9 @@ int nfnl_send(struct nfnl_handle *nfnlh, struct nlmsghdr *n)
  *
  */
 void nfnl_fill_hdr(struct nfnl_handle *nfnlh,
-		    struct nlmsghdr *nlh, int len, 
+		    struct nlmsghdr *nlh, unsigned int len, 
 		    u_int8_t family,
+		    u_int16_t res_id,
 		    u_int16_t msg_type,
 		    u_int16_t msg_flags)
 {
@@ -160,7 +163,8 @@ void nfnl_fill_hdr(struct nfnl_handle *nfnlh,
 	nlh->nlmsg_seq = ++nfnlh->seq;
 
 	nfg->nfgen_family = family;
-
+	nfg->version = NFNETLINK_V0;
+	nfg->res_id = htons(res_id);
 }
 
 /**
