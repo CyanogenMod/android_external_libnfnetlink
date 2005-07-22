@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#include <netinet/in.h>
 
 #include <sys/socket.h>
 
@@ -37,9 +38,9 @@ void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc)
 
 	printf("%s called from %s\n", __FUNCTION__, desc);
 	printf("  nlmsghdr = %p, received_len = %u\n", nlh, received_len);
-	printf("  NLMSG_DATA(nlh) = %p (+%u bytes)\n", nlmsg_data,
+	printf("  NLMSG_DATA(nlh) = %p (+%td bytes)\n", nlmsg_data,
 	       (nlmsg_data - (void *)nlh));
-	printf("  NFM_NFA(NLMSG_DATA(nlh)) = %p (+%u bytes)\n",
+	printf("  NFM_NFA(NLMSG_DATA(nlh)) = %p (+%td bytes)\n",
 		nfa, ((void *)nfa - (void *)nlh));
 	printf("  nlmsg_type = %u, nlmsg_len = %u, nlmsg_seq = %u "
 		"nlmsg_flags = 0x%x\n", nlh->nlmsg_type, nlh->nlmsg_len,
@@ -87,7 +88,7 @@ int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 	err = getsockname(nfnlh->fd, (struct sockaddr *)&nfnlh->local, 
 			  &addr_len);
 	if (addr_len != sizeof(nfnlh->local)) {
-		nfnl_error("Bad address length (%d != %d)", addr_len,
+		nfnl_error("Bad address length (%u != %zd)", addr_len,
 			   sizeof(nfnlh->local));
 		return -1;
 	}
