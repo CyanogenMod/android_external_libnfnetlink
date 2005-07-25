@@ -28,7 +28,11 @@ struct nfnl_handle {
 extern int nfnl_open(struct nfnl_handle *, u_int8_t, unsigned int);
 extern int nfnl_close(struct nfnl_handle *);
 extern int nfnl_send(struct nfnl_handle *, struct nlmsghdr *);
-
+extern int nfnl_sendmsg(const struct nfnl_handle *, const struct msghdr *msg,
+			unsigned int flags);
+extern int nfnl_sendiov(const struct nfnl_handle *nfnlh,
+			const struct iovec *iov, unsigned int num,
+			unsigned int flags);
 
 extern void nfnl_fill_hdr(struct nfnl_handle *, struct nlmsghdr *,
 			  unsigned int, u_int8_t, u_int16_t, u_int16_t,
@@ -57,6 +61,10 @@ extern int nfnl_parse_attr(struct nfattr **, int, struct nfattr *, int);
 	__start; })
 #define nfnl_nest_end(nlh, tail) 				\
 ({	(tail)->nfa_len = (void *) NLMSG_TAIL(nlh) - (void *) tail; })
+
+extern void nfnl_build_nfa_iovec(struct iovec *iov, struct nfattr *nfa, 
+				 u_int16_t type, u_int32_t len,
+				 unsigned char *val);
 
 extern void nfnl_dump_packet(struct nlmsghdr *, int, char *);
 #endif /* __LIBNFNETLINK_H */

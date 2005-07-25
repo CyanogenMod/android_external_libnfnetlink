@@ -121,15 +121,31 @@ int nfnl_close(struct nfnl_handle *nfnlh)
  */
 int nfnl_send(struct nfnl_handle *nfnlh, struct nlmsghdr *n)
 {
-	struct sockaddr_nl nladdr;
-
-	memset(&nladdr, 0, sizeof(nladdr));
-	nladdr.nl_family = AF_NETLINK;
-
 	nfnl_debug_dump_packet(n, n->nlmsg_len+sizeof(*n), "nfnl_send");
 
 	return sendto(nfnlh->fd, n, n->nlmsg_len, 0, 
-		      (struct sockaddr *)&nladdr, sizeof(nladdr));
+		      (struct sockaddr *)&nfnlh->peer, sizeof(nfnlh->peer));
+}
+
+int nfnl_sendmsg(const struct nfnl_handle *nfnlh, const struct msghdr *msg,
+		 unsigned int flags)
+{
+	return sendmsg(nfnlh->fd, msg, flags);
+}
+
+int nfnl_sendiov(const struct nfnl_handle *nfnlh, const struct iovec *iov,
+		 unsigned int num, unsigned int flags)
+{
+	struct msghdr msg;
+
+	msg.msg_name = (struct sockaddr *) &nfnlh->peer;
+	msg.msg_namelen = sizeof(nfnlh->peer);
+	msg.msg_iov = (struct iovec *) iov;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
+
+	return nfnl_sendmsg(nfnlh, &msg, flags);
 }
 
 /**
@@ -493,4 +509,23 @@ int nfnl_parse_attr(struct nfattr *tb[], int max, struct nfattr *nfa, int len)
 		nfnl_error("deficit (%d) len (%d).\n", len, nfa->nfa_len);
 
 	return 0;
+}
+
+/**
+ * nfnl_build_nfa_iovec - Build two iovec's from tag, length and value
+ *
+ * iov: pointer to array of two 'struct iovec' (caller-allocated)
+ * nfa: pointer to 'struct nfattr' (caller-allocated)
+ * type: type (tag) of attribute
+ * len: length of value
+ * val: pointer to buffer containing 'value'
+ *
+ */ 
+void nfnl_build_nfa_iovec(struct iovec *iov, struct nfattr *nfa, 
+			  u_int16_t type, u_int32_t len, unsigned char *val)
+{
+	iov[0].iov_base = nfa;
+	iov[0].iov_len = sizeof(*nfa);
+	iov[1].iov_base = val;
+	iov[1].iov_len = NFA_ALIGN(len);
 }
