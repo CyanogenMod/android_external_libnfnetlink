@@ -11,7 +11,7 @@
 #include <linux/netfilter/nfnetlink.h>
 
 #define NLMSG_TAIL(nlh) \
-	((void *) (nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len)
+	(((void *) (nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len))
 
 #define NFNL_BUFFSIZE		8192
 
