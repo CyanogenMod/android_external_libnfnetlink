@@ -77,6 +77,8 @@ int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 	nfnlh->local.nl_family = AF_NETLINK;
 	nfnlh->local.nl_groups = subscriptions;
 
+	nfnlh->peer.nl_family = AF_NETLINK;
+
 	err = bind(nfnlh->fd, (struct sockaddr *)&nfnlh->local,
 		   sizeof(nfnlh->local));
 	if (err < 0) {
