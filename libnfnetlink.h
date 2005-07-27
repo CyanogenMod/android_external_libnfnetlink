@@ -7,6 +7,7 @@
 #define __LIBNFNETLINK_H
 
 #include <linux/types.h>
+#include <sys/socket.h>	/* for sa_family_t */
 #include <linux/netlink.h>
 #include <linux/netfilter/nfnetlink.h>
 
