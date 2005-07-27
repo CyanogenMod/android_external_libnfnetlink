@@ -186,6 +186,25 @@ void nfnl_fill_hdr(struct nfnl_handle *nfnlh,
 	nfg->res_id = htons(res_id);
 }
 
+struct nfattr *
+nfnl_parse_hdr(struct nfnl_handle *nfnlh, const struct nlmsghdr *nlh,
+		struct nfgenmsg **genmsg)
+{
+	if (nlh->nlmsg_len < NLMSG_LENGTH(sizeof(struct nfgenmsg)))
+		return NULL;
+
+	if (nlh->nlmsg_len == NLMSG_LENGTH(sizeof(struct nfgenmsg))) {
+		if (genmsg)
+			*genmsg = (struct nfgenmsg *)((void *)nlh+sizeof(nlh));
+		return NULL;
+	}
+
+	if (genmsg)
+		*genmsg = (struct nfgenmsg *)((void *)nlh + sizeof(nlh));
+
+	return ((void *)nlh + NLMSG_LENGTH(sizeof(struct nfgenmsg)));
+}
+
 /**
  * nfnl_listen: listen for one or more netlink messages
  *

@@ -38,6 +38,10 @@ extern void nfnl_fill_hdr(struct nfnl_handle *, struct nlmsghdr *,
 			  unsigned int, u_int8_t, u_int16_t, u_int16_t,
 			  u_int16_t);
 
+extern struct nfattr *nfnl_parse_hdr(struct nfnl_handle *nfnlh, 
+				     const struct nlmsghdr *nlh,
+				     struct nfgenmsg **genmsg);
+
 extern int nfnl_listen(struct nfnl_handle *,
                       int (*)(struct sockaddr_nl *, struct nlmsghdr *, void *),
                       void *);
