@@ -24,7 +24,7 @@ int main(int argc, char **argv)
 	nfulnl_bind_group(&h, &qh100, 100);
 	nfulnl_set_mode(&qh, NFULNL_COPY_PACKET, 0xffff);
 
-	while (recv(h.nfnlh.fd, buf, sizeof(buf), 0) > 0) {
+	while (recv(h.nfnlh.fd, buf, sizeof(buf), 0) >= 0) {
 		printf("pkt received\n");
 	}
 
