@@ -20,7 +20,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "libnfnetlink.h"
+#include <libnfnetlink/libnfnetlink.h>
 
 #define nfnl_error(format, args...) \
 	fprintf(stderr, "%s: " format "\n", __FUNCTION__, ## args)
