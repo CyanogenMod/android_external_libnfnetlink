@@ -2,7 +2,7 @@
 
 #EXTRA_DIST = $(man_MANS) acinclude.m4
 
-INCLUDES=-I../include -I/lib/modules/$(shell (uname -r))/build/include
+INCLUDES = $(all_includes) -I$(top_srcdir)/include -I${KERNELDIR} 
 AM_CFLAGS=-fPIC -Wall
 LIBS=
 
