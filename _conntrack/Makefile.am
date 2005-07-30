@@ -1,21 +1,10 @@
-AUTOMAKE_OPTIONS = no-dependencies foreign
+AUTOMAKE_OPTIONS = foreign
 
-EXTRA_DIST = $(man_MANS) acinclude.m4
+INCLUDES =$(all_includes) -I$(top_srcdir)/include -I${KERNELDIR}
+SUBDIRS	= include src utils
+LINKOPTS = -lnfnetlink
 
-man_MANS =
-
-INCLUDES=-I../include -I/lib/modules/$(shell (uname -r))/build/include
-CFLAGS=-fPIC -Wall
-LIBS=
-
-lib_LTLIBRARIES = libctnetlink.la
-
-libctnetlink_la_LDFLAGS = -Wc,-nostartfiles
-libctnetlink_la_SOURCES = libctnetlink.c
-
-include_HEADERS = libctnetlink.h 
-
-man_MANS = #ctnetlink.3 ctnetlink.7
+man_MANS = #nfnetlink_conntrack.3 nfnetlink_conntrack.7
 
 $(OBJECTS): libtool
 libtool: $(LIBTOOL_DEPS)
