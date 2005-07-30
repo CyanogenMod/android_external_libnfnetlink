@@ -28,7 +28,7 @@
 #include <linux/netlink.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_log.h>
-#include "libnfnetlink_log.h"
+#include <libnfnetlink_log/libnfnetlink_log.h>
 
 #define HEADER_LEN	(NLMSG_LENGTH(sizeof(struct nlmsghdr))	\
 			 +NLMSG_LENGTH(sizeof(struct nfgenmsg)))
@@ -154,12 +154,17 @@ int nfulnl_set_nlbufsiz(struct nfulnl_g_handle *gh, u_int32_t nlbufsiz)
 {
 	char buf[HEADER_LEN+NFA_LENGTH(sizeof(u_int32_t))];
 	struct nlmsghdr *nmh = (struct nlmsghdr *) buf;
+	int status;
 
 	nfnl_fill_hdr(&gh->h->nfnlh, nmh, 0, AF_UNSPEC, gh->id,
 		      NFULNL_MSG_CONFIG, NLM_F_REQUEST|NLM_F_ACK);
 
 	nfnl_addattr32(nmh, sizeof(buf), NFULA_CFG_NLBUFSIZ, htonl(nlbufsiz));
 
-	return nfnl_send(&gh->h->nfnlh, nmh);
+	status = nfnl_send(&gh->h->nfnlh, nmh);
+
+	/* we try to have space for at least 10 messages in the socket buffer */
+	if (status >= 0)
+		nfnl_rcvbufsiz(&gh->h->nfnlh, 10*nlbufsiz);
 }
 
