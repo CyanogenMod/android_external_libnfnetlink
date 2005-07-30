@@ -55,7 +55,7 @@ int nfulnl_close(struct nfulnl_handle *h)
 /* build a NFULNL_MSG_CONFIG message */
 static int
 __build_send_cfg_msg(struct nfulnl_handle *h, u_int8_t command,
-		     u_int16_t queuenum, u_int16_t pf)
+		     u_int16_t queuenum, u_int8_t pf)
 {
 	char buf[NLMSG_LENGTH(sizeof(struct nlmsghdr))
 		+NLMSG_LENGTH(sizeof(struct nfgenmsg))
@@ -63,11 +63,10 @@ __build_send_cfg_msg(struct nfulnl_handle *h, u_int8_t command,
 	struct nfulnl_msg_config_cmd cmd;
 	struct nlmsghdr *nmh = (struct nlmsghdr *) buf;
 
-	nfnl_fill_hdr(&h->nfnlh, nmh, 0, AF_UNSPEC, queuenum,
+	nfnl_fill_hdr(&h->nfnlh, nmh, 0, pf, queuenum,
 		      NFULNL_MSG_CONFIG, NLM_F_REQUEST|NLM_F_ACK);
 
 	cmd.command = command;
-	cmd.pf = htons(pf);
 	nfnl_addattr_l(nmh, sizeof(buf), NFULA_CFG_CMD, &cmd, sizeof(cmd));
 
 	return nfnl_send(&h->nfnlh, nmh);
@@ -124,4 +123,3 @@ int nfulnl_set_mode(struct nfulnl_g_handle *gh,
 
 	return nfnl_send(&gh->h->nfnlh, nmh);
 }
-
