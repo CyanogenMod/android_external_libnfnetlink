@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
-#include "libnfnetlink_log.h"
+#include <libnfnetlink_log/libnfnetlink_log.h>
 
 int main(int argc, char **argv)
 {
