@@ -17,6 +17,7 @@
 #include <time.h>
 #include <netinet/in.h>
 
+#include <sys/types.h>
 #include <sys/socket.h>
 
 #include "libnfnetlink.h"
@@ -187,7 +188,8 @@ void nfnl_fill_hdr(struct nfnl_handle *nfnlh,
 }
 
 struct nfattr *
-nfnl_parse_hdr(struct nfnl_handle *nfnlh, const struct nlmsghdr *nlh,
+nfnl_parse_hdr(const struct nfnl_handle *nfnlh,
+		const struct nlmsghdr *nlh,
 		struct nfgenmsg **genmsg)
 {
 	if (nlh->nlmsg_len < NLMSG_LENGTH(sizeof(struct nfgenmsg)))
@@ -549,4 +551,77 @@ void nfnl_build_nfa_iovec(struct iovec *iov, struct nfattr *nfa,
 	iov[0].iov_len = sizeof(*nfa);
 	iov[1].iov_base = val;
 	iov[1].iov_len = NFA_ALIGN(len);
+}
+
+#ifndef SO_RCVBUFFORCE
+#define SO_RCVBUFFORCE	(33)
+#endif
+
+unsigned int nfnl_rcvbufsiz(struct nfnl_handle *h, unsigned int size)
+{
+	int status;
+	socklen_t socklen = sizeof(size);
+	unsigned int read_size = 0;
+
+	/* first we try the FORCE option, which is introduced in kernel
+	 * 2.6.14 to give "root" the ability to override the system wide
+	 * maximum */
+	status = setsockopt(h->fd, SOL_SOCKET, SO_RCVBUFFORCE, &size, socklen);
+	if (status < 0) {
+		/* if this didn't work, we try at least to get the system
+		 * wide maximum (or whatever the user requested) */
+		setsockopt(h->fd, SOL_SOCKET, SO_RCVBUF, &size, socklen);
+	}
+	getsockopt(h->fd, SOL_SOCKET, SO_RCVBUF, &read_size, &socklen);
+
+	return read_size;
+}
+
+
+struct nlmsghdr *nfnl_get_msg_first(struct nfnl_handle *h,
+				    const unsigned char *buf,
+				    size_t len)
+{
+	struct nlmsghdr *nlh;
+
+	/* first message in buffer */
+	nlh = (struct nlmsghdr *)buf;
+	if (!NLMSG_OK(nlh, len))
+		return NULL;
+	h->last_nlhdr = nlh;
+
+	return nlh;
+}
+
+struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
+				   const unsigned char *buf,
+				   size_t len)
+{
+	struct nlmsghdr *nlh;
+	size_t remain_len;
+
+	/* if last header in handle not inside this buffer, 
+	 * drop reference to last header */
+	if (!h->last_nlhdr ||
+	    (unsigned char *)h->last_nlhdr > (buf + len)  ||
+	    (unsigned char *)h->last_nlhdr < buf) {
+		h->last_nlhdr = NULL;
+		return NULL;
+	}
+
+	/* n-th part of multipart message */
+	if (h->last_nlhdr->nlmsg_type == NLMSG_DONE ||
+	    h->last_nlhdr->nlmsg_flags & NLM_F_MULTI) {
+		/* if last part in multipart message or no
+		 * multipart message at all, return */
+		h->last_nlhdr = NULL;
+		return NULL;
+	}
+
+	remain_len = (len - ((unsigned char *)h->last_nlhdr - buf));
+	nlh = NLMSG_NEXT(h->last_nlhdr, remain_len);
+
+	h->last_nlhdr = nlh;
+
+	return nlh;
 }

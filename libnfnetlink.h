@@ -23,6 +23,7 @@ struct nfnl_handle {
 	u_int8_t		subsys_id;
 	u_int32_t		seq;
 	u_int32_t		dump;
+	struct nlmsghdr 	*last_nlhdr;
 };
 
 /* get a new library handle */
@@ -39,7 +40,7 @@ extern void nfnl_fill_hdr(struct nfnl_handle *, struct nlmsghdr *,
 			  unsigned int, u_int8_t, u_int16_t, u_int16_t,
 			  u_int16_t);
 
-extern struct nfattr *nfnl_parse_hdr(struct nfnl_handle *nfnlh, 
+extern struct nfattr *nfnl_parse_hdr(const struct nfnl_handle *nfnlh, 
 				     const struct nlmsghdr *nlh,
 				     struct nfgenmsg **genmsg);
 
@@ -70,6 +71,15 @@ extern int nfnl_parse_attr(struct nfattr **, int, struct nfattr *, int);
 extern void nfnl_build_nfa_iovec(struct iovec *iov, struct nfattr *nfa, 
 				 u_int16_t type, u_int32_t len,
 				 unsigned char *val);
+extern unsigned int nfnl_rcvbufsiz(struct nfnl_handle *h, unsigned int size);
+
+
+extern struct nlmsghdr *nfnl_get_msg_first(struct nfnl_handle *h,
+					   const unsigned char *buf,
+					   size_t len);
+extern struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
+					  const unsigned char *buf,
+					  size_t len);
 
 extern void nfnl_dump_packet(struct nlmsghdr *, int, char *);
 #endif /* __LIBNFNETLINK_H */
