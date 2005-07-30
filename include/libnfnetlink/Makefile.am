@@ -1,3 +1,3 @@
 
-include_HEADERS = libnfnetlink.h
+pkginclude_HEADERS = libnfnetlink.h
 
