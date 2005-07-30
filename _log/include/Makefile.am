@@ -1,3 +1,3 @@
 
-include_HEADERS = include/libnfnetlink_log.h include/libipulog.h
+include_HEADERS = libnfnetlink_log/libnfnetlink_log.h libipulog/libipulog.h
 
