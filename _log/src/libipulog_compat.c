@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <libnfnetlink_log/libnfnetlink_log.h>
-#include <libipulog/libipulog.h>
+#include <libnfnetlink_log/libipulog.h>
 
 /* private */
 #define PAYLOAD_SIZE	0xffff
@@ -128,8 +128,10 @@ ulog_packet_msg_t *ipulog_get_packet(struct ipulog_handle *h,
 
 	if (!h->last_nlh)
 		nlh = nfnl_get_msg_first(&h->nfulh.nfnlh, buf, len);
-	else
+	else {
+next_msg:
 		nlh = nfnl_get_msg_next(&h->nfulh.nfnlh, buf, len);
+	}
 	h->last_nlh = nlh;
 
 	if (!nlh)
@@ -137,12 +139,13 @@ ulog_packet_msg_t *ipulog_get_packet(struct ipulog_handle *h,
 
 	nfnl_parse_attr(tb, NFULA_MAX, NFM_NFA(nlh), NFM_PAYLOAD(nlh));
 	
-	if (!tb[NFULA_PACKET_HDR-1]) {
-		/* ERROR */
-	}
-	hdr = NFA_DATA(tb[NFULA_PACKET_HDR-1]);
+	if (!tb[NFULA_PACKET_HDR-1])
+		goto next_msg;
 
+	/* now build the fake ulog_packet_msg */
+	hdr = NFA_DATA(tb[NFULA_PACKET_HDR-1]);
 	h->upmsg.hook = hdr->hook;
+
 	if (tb[NFULA_MARK-1])
 		h->upmsg.mark = ntohl(*(u_int32_t *)NFA_DATA(tb[NFULA_MARK-1]));
 	else

@@ -1,8 +1,7 @@
 AUTOMAKE_OPTIONS = foreign
 
 INCLUDES =$(all_includes) -I$(top_srcdir)/include -I${KERNELDIR}
-SUBDIRS	= src utils
-DIST_SUBDIRS = src include
+SUBDIRS	= include src utils
 LINKOPTS = -lnfnetlink
 
 man_MANS = #nfnetlink_log.3 nfnetlink_log.7
