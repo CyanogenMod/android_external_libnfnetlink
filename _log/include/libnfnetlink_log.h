@@ -42,5 +42,7 @@ extern int nfulnl_unbind_group(struct nfulnl_g_handle *qh);
 
 extern int nfulnl_set_mode(struct nfulnl_g_handle *qh,
 			  u_int8_t mode, unsigned int len);
-
+extern int nfulnl_set_timeout(struct nfulnl_g_handle *gh, u_int32_t timeout);
+extern int nfulnl_set_qthresh(struct nfulnl_g_handle *gh, u_int32_t qthresh);
+extern int nfulnl_set_nlbufsiz(struct nfulnl_g_handle *gh, u_int32_t nlbufsiz);
 #endif	/* __LIBNFNETLINK_LOG_H */

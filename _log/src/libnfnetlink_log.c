@@ -30,6 +30,9 @@
 #include <linux/netfilter/nfnetlink_log.h>
 #include "libnfnetlink_log.h"
 
+#define HEADER_LEN	(NLMSG_LENGTH(sizeof(struct nlmsghdr))	\
+			 +NLMSG_LENGTH(sizeof(struct nfgenmsg)))
+
 /***********************************************************************
  * low level stuff 
  ***********************************************************************/
@@ -57,9 +60,7 @@ static int
 __build_send_cfg_msg(struct nfulnl_handle *h, u_int8_t command,
 		     u_int16_t queuenum, u_int8_t pf)
 {
-	char buf[NLMSG_LENGTH(sizeof(struct nlmsghdr))
-		+NLMSG_LENGTH(sizeof(struct nfgenmsg))
-		+NFA_LENGTH(sizeof(struct nfulnl_msg_config_cmd))];
+	char buf[HEADER_LEN+NFA_LENGTH(sizeof(struct nfulnl_msg_config_cmd))];
 	struct nfulnl_msg_config_cmd cmd;
 	struct nlmsghdr *nmh = (struct nlmsghdr *) buf;
 
@@ -107,19 +108,58 @@ int nfulnl_unbind_group(struct nfulnl_g_handle *gh)
 int nfulnl_set_mode(struct nfulnl_g_handle *gh,
 		   u_int8_t mode, u_int32_t range)
 {
-	char buf[NLMSG_LENGTH(sizeof(struct nlmsghdr))
-		+NLMSG_LENGTH(sizeof(struct nfgenmsg))
-		+NFA_LENGTH(sizeof(struct nfulnl_msg_config_params))];
-	struct nfulnl_msg_config_params params;
+	char buf[HEADER_LEN
+		+NFA_LENGTH(sizeof(struct nfulnl_msg_config_mode))];
+	struct nfulnl_msg_config_mode params;
 	struct nlmsghdr *nmh = (struct nlmsghdr *) buf;
 
 	nfnl_fill_hdr(&gh->h->nfnlh, nmh, 0, AF_UNSPEC, gh->id,
 		      NFULNL_MSG_CONFIG, NLM_F_REQUEST|NLM_F_ACK);
 
-	params.copy_range = htonl(range);
+	params.copy_range = htonl(range);	/* copy_range is short */
 	params.copy_mode = mode;
-	nfnl_addattr_l(nmh, sizeof(buf), NFULA_CFG_PARAMS, &params,
+	nfnl_addattr_l(nmh, sizeof(buf), NFULA_CFG_MODE, &params,
 		       sizeof(params));
 
 	return nfnl_send(&gh->h->nfnlh, nmh);
 }
+
+int nfulnl_set_timeout(struct nfulnl_g_handle *gh, u_int32_t timeout)
+{
+	char buf[HEADER_LEN+NFA_LENGTH(sizeof(u_int32_t))];
+	struct nlmsghdr *nmh = (struct nlmsghdr *) buf;
+
+	nfnl_fill_hdr(&gh->h->nfnlh, nmh, 0, AF_UNSPEC, gh->id,
+		      NFULNL_MSG_CONFIG, NLM_F_REQUEST|NLM_F_ACK);
+
+	nfnl_addattr32(nmh, sizeof(buf), NFULA_CFG_TIMEOUT, htonl(timeout));
+
+	return nfnl_send(&gh->h->nfnlh, nmh);
+}
+
+int nfulnl_set_qthresh(struct nfulnl_g_handle *gh, u_int32_t qthresh)
+{
+	char buf[HEADER_LEN+NFA_LENGTH(sizeof(u_int32_t))];
+	struct nlmsghdr *nmh = (struct nlmsghdr *) buf;
+
+	nfnl_fill_hdr(&gh->h->nfnlh, nmh, 0, AF_UNSPEC, gh->id,
+		      NFULNL_MSG_CONFIG, NLM_F_REQUEST|NLM_F_ACK);
+
+	nfnl_addattr32(nmh, sizeof(buf), NFULA_CFG_QTHRESH, htonl(qthresh));
+
+	return nfnl_send(&gh->h->nfnlh, nmh);
+}
+
+int nfulnl_set_nlbufsiz(struct nfulnl_g_handle *gh, u_int32_t nlbufsiz)
+{
+	char buf[HEADER_LEN+NFA_LENGTH(sizeof(u_int32_t))];
+	struct nlmsghdr *nmh = (struct nlmsghdr *) buf;
+
+	nfnl_fill_hdr(&gh->h->nfnlh, nmh, 0, AF_UNSPEC, gh->id,
+		      NFULNL_MSG_CONFIG, NLM_F_REQUEST|NLM_F_ACK);
+
+	nfnl_addattr32(nmh, sizeof(buf), NFULA_CFG_NLBUFSIZ, htonl(nlbufsiz));
+
+	return nfnl_send(&gh->h->nfnlh, nmh);
+}
+
