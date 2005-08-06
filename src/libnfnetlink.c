@@ -54,6 +54,11 @@ void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc)
 	}
 }
 
+int nfnl_fd(struct nfnl_handle *h)
+{
+	return h->fd;
+}
+
 /**
  * nfnl_open - open a netlink socket
  *
@@ -107,6 +112,7 @@ int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 	nfnlh->seq = time(NULL);
 	nfnlh->subsys_id = subsys_id;
 	nfnlh->cb_count = cb_count;
+	nfnlh->cb = cb;
 
 	return 0;
 }
@@ -530,6 +536,8 @@ int nfnl_addattr32(struct nlmsghdr *n, int maxlen, int type,
  */
 int nfnl_parse_attr(struct nfattr *tb[], int max, struct nfattr *nfa, int len)
 {
+	memset(tb, 0, sizeof(struct nfattr *) * max);
+
 	while (NFA_OK(nfa, len)) {
 		if (nfa->nfa_type <= max)
 			tb[nfa->nfa_type-1] = nfa;
@@ -610,7 +618,7 @@ struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
 	/* if last header in handle not inside this buffer, 
 	 * drop reference to last header */
 	if (!h->last_nlhdr ||
-	    (unsigned char *)h->last_nlhdr > (buf + len)  ||
+	    (unsigned char *)h->last_nlhdr >= (buf + len)  ||
 	    (unsigned char *)h->last_nlhdr < buf) {
 		h->last_nlhdr = NULL;
 		return NULL;
@@ -654,8 +662,9 @@ int nfnl_callback_unregister(struct nfnl_handle *h, u_int8_t type)
 	return 0;
 }
 
-static int nfnl_check_attributes(struct nfnl_handle *h, struct nlmsghdr *nlh,
-				 struct nfattr *nfa[])
+int nfnl_check_attributes(const struct nfnl_handle *h,
+			 const struct nlmsghdr *nlh,
+			 struct nfattr *nfa[])
 {
 	int min_len;
 	u_int8_t type = NFNL_MSG_TYPE(nlh->nlmsg_type);

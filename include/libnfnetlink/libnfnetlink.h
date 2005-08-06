@@ -35,6 +35,8 @@ struct nfnl_handle {
 	struct nfnl_callback 	*cb;	/* array of callbacks */
 };
 
+extern int nfnl_fd(struct nfnl_handle *h);
+
 /* get a new library handle */
 extern int nfnl_open(struct nfnl_handle *, u_int8_t, u_int8_t, unsigned int);
 extern int nfnl_close(struct nfnl_handle *);
@@ -69,6 +71,9 @@ extern int nfnl_handle_packet(struct nfnl_handle *, char *buf, int len);
 extern struct nfattr *nfnl_parse_hdr(const struct nfnl_handle *nfnlh, 
 				     const struct nlmsghdr *nlh,
 				     struct nfgenmsg **genmsg);
+extern int nfnl_check_attributes(const struct nfnl_handle *nfnlh,
+				 const struct nlmsghdr *nlh,
+				 struct nfattr *tb[]);
 extern struct nlmsghdr *nfnl_get_msg_first(struct nfnl_handle *h,
 					   const unsigned char *buf,
 					   size_t len);
