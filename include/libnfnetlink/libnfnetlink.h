@@ -16,6 +16,12 @@
 
 #define NFNL_BUFFSIZE		8192
 
+struct nfnl_callback {
+	int (*call)(struct nlmsghdr *nlh, struct nfattr *nfa[], void *data);
+	void *data;
+	u_int16_t attr_count;
+};
+
 struct nfnl_handle {
 	int			fd;
 	struct sockaddr_nl	local;
@@ -24,34 +30,51 @@ struct nfnl_handle {
 	u_int32_t		seq;
 	u_int32_t		dump;
 	struct nlmsghdr 	*last_nlhdr;
+
+	u_int8_t		cb_count;
+	struct nfnl_callback 	*cb;	/* array of callbacks */
 };
 
 /* get a new library handle */
-extern int nfnl_open(struct nfnl_handle *, u_int8_t, unsigned int);
+extern int nfnl_open(struct nfnl_handle *, u_int8_t, u_int8_t, unsigned int);
 extern int nfnl_close(struct nfnl_handle *);
+
+/* sending of data */
 extern int nfnl_send(struct nfnl_handle *, struct nlmsghdr *);
 extern int nfnl_sendmsg(const struct nfnl_handle *, const struct msghdr *msg,
 			unsigned int flags);
 extern int nfnl_sendiov(const struct nfnl_handle *nfnlh,
 			const struct iovec *iov, unsigned int num,
 			unsigned int flags);
-
 extern void nfnl_fill_hdr(struct nfnl_handle *, struct nlmsghdr *,
 			  unsigned int, u_int8_t, u_int16_t, u_int16_t,
 			  u_int16_t);
-
-extern struct nfattr *nfnl_parse_hdr(const struct nfnl_handle *nfnlh, 
-				     const struct nlmsghdr *nlh,
-				     struct nfgenmsg **genmsg);
-
-extern int nfnl_listen(struct nfnl_handle *,
-                      int (*)(struct sockaddr_nl *, struct nlmsghdr *, void *),
-                      void *);
-
 extern int nfnl_talk(struct nfnl_handle *, struct nlmsghdr *, pid_t,
                      unsigned, struct nlmsghdr *,
                      int (*)(struct sockaddr_nl *, struct nlmsghdr *, void *),
                      void *);
+
+/* simple challenge/response */
+extern int nfnl_listen(struct nfnl_handle *,
+                      int (*)(struct sockaddr_nl *, struct nlmsghdr *, void *),
+                      void *);
+
+/* receiving */
+extern int nfnl_callback_register(struct nfnl_handle *,
+				  u_int8_t type, struct nfnl_callback *cb);
+extern int nfnl_callback_unregister(struct nfnl_handle *, u_int8_t type);
+extern int nfnl_handle_packet(struct nfnl_handle *, char *buf, int len);
+
+/* parsing */
+extern struct nfattr *nfnl_parse_hdr(const struct nfnl_handle *nfnlh, 
+				     const struct nlmsghdr *nlh,
+				     struct nfgenmsg **genmsg);
+extern struct nlmsghdr *nfnl_get_msg_first(struct nfnl_handle *h,
+					   const unsigned char *buf,
+					   size_t len);
+extern struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
+					  const unsigned char *buf,
+					  size_t len);
 
 /* nfnl attribute handling functions */
 extern int nfnl_addattr_l(struct nlmsghdr *, int, int, void *, int);
@@ -73,13 +96,6 @@ extern void nfnl_build_nfa_iovec(struct iovec *iov, struct nfattr *nfa,
 				 unsigned char *val);
 extern unsigned int nfnl_rcvbufsiz(struct nfnl_handle *h, unsigned int size);
 
-
-extern struct nlmsghdr *nfnl_get_msg_first(struct nfnl_handle *h,
-					   const unsigned char *buf,
-					   size_t len);
-extern struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
-					  const unsigned char *buf,
-					  size_t len);
 
 extern void nfnl_dump_packet(struct nlmsghdr *, int, char *);
 #endif /* __LIBNFNETLINK_H */

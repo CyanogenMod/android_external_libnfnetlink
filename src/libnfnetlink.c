@@ -62,11 +62,16 @@ void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc)
  * subscriptions: netlink groups we want to be subscribed to
  *
  */
-int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
-	      u_int32_t subscriptions)
+int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id, 
+	      u_int8_t cb_count, u_int32_t subscriptions)
 {
 	int err;
 	unsigned int addr_len;
+	struct nfnl_callback *cb;
+
+	cb = malloc(sizeof(*cb) * cb_count);
+	if (!cb)
+		return -ENOMEM;
 	
 	memset(nfnlh, 0, sizeof(*nfnlh));
 	nfnlh->fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_NETFILTER);
@@ -101,6 +106,7 @@ int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 	}
 	nfnlh->seq = time(NULL);
 	nfnlh->subsys_id = subsys_id;
+	nfnlh->cb_count = cb_count;
 
 	return 0;
 }
@@ -113,6 +119,7 @@ int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
  */
 int nfnl_close(struct nfnl_handle *nfnlh)
 {
+	free(nfnlh->cb);
 	return close(nfnlh->fd);
 }
 
@@ -624,4 +631,113 @@ struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
 	h->last_nlhdr = nlh;
 
 	return nlh;
+}
+
+int nfnl_callback_register(struct nfnl_handle *h,
+			   u_int8_t type, struct nfnl_callback *cb)
+{
+	if (type >= h->cb_count)
+		return -EINVAL;
+
+	memcpy(&h->cb[type], cb, sizeof(*cb));
+
+	return 0;
+}
+
+int nfnl_callback_unregister(struct nfnl_handle *h, u_int8_t type)
+{
+	if (type >= h->cb_count)
+		return -EINVAL;
+
+	h->cb[type].call = NULL;
+
+	return 0;
+}
+
+static int nfnl_check_attributes(struct nfnl_handle *h, struct nlmsghdr *nlh,
+				 struct nfattr *nfa[])
+{
+	int min_len;
+	u_int8_t type = NFNL_MSG_TYPE(nlh->nlmsg_type);
+	struct nfnl_callback *cb = &h->cb[type];
+
+#if 1
+	/* checks need to be enabled as soon as this is called from
+	 * somebody else than __nfnl_handle_msg */
+	if (type >= h->cb_count)
+		return -EINVAL;
+
+	min_len = NLMSG_ALIGN(sizeof(struct nfgenmsg));
+	if (nlh->nlmsg_len < min_len)
+		return -EINVAL;
+#endif
+	memset(nfa, 0, sizeof(struct nfattr *) * cb->attr_count);
+
+	if (nlh->nlmsg_len > min_len) {
+		struct nfattr *attr = NFM_NFA(NLMSG_DATA(nlh));
+		int attrlen = nlh->nlmsg_len - NLMSG_ALIGN(min_len);
+
+		while (NFA_OK(attr, attrlen)) {
+			unsigned int flavor = attr->nfa_type;
+			if (flavor) {
+				if (flavor > cb->attr_count)
+					return -EINVAL;
+				nfa[flavor - 1] = attr;
+			}
+			attr = NFA_NEXT(attr, attrlen);
+		}
+	}
+
+	return 0;
+}
+
+static int __nfnl_handle_msg(struct nfnl_handle *h, struct nlmsghdr *nlh,
+			     int len)
+{
+	u_int8_t type;
+	int err = 0;
+	struct nfattr *nfa[h->cb_count];
+
+	if (NFNL_SUBSYS_ID(nlh->nlmsg_type) != h->subsys_id)
+		return -1;
+
+	if (nlh->nlmsg_len < NLMSG_LENGTH(NLMSG_ALIGN(sizeof(struct nfgenmsg))))
+		return -1;
+
+	type = NFNL_MSG_TYPE(nlh->nlmsg_type);
+
+	if (type >= h->cb_count)
+		return -1;
+
+	if (h->cb[type].attr_count) {
+		err = nfnl_check_attributes(h, nlh, nfa);
+		if (err < 0)
+			return err;
+		if (h->cb[type].call)
+			return h->cb[type].call(nlh, nfa, h->cb[type].data);
+	}
+	return 0;
+}
+
+int nfnl_handle_packet(struct nfnl_handle *h, char *buf, int len)
+{
+
+	while (len >= NLMSG_SPACE(0)) {
+		u_int32_t rlen;
+		struct nlmsghdr *nlh = (struct nlmsghdr *)buf;
+
+		if (nlh->nlmsg_len < sizeof(struct nlmsghdr)
+		    || len < nlh->nlmsg_len)
+			return -1;
+
+		rlen = NLMSG_ALIGN(nlh->nlmsg_len);
+		if (rlen > len)
+			rlen = len;
+
+		if (__nfnl_handle_msg(h, nlh, rlen) < 0)
+			return -1;
+
+		len -= rlen;
+	}
+	return 0;
 }
