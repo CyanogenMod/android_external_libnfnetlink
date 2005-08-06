@@ -13,36 +13,33 @@
 #include <linux/netfilter/nfnetlink_log.h>
 #include <libnfnetlink/libnfnetlink.h>
 
+struct nfulnl_handle;
+struct nfulnl_g_handle;
 
-struct nfulnl_handle
-{
-	struct nfnl_handle nfnlh;
-};
+extern struct nfnl_handle *nfulnl_nfnlh(struct nfulnl_handle *h);
 
-struct nfulnl_g_handle
-{
-	struct nfulnl_handle *h;
-	u_int16_t id;
-};
+typedef nfulnl_callback(struct nfulnl_g_handle *gh, struct nfgenmsg *nfmsg,
+			struct nfattr *nfa[], void *data);
 
-struct ctnl_msg_handler {
-	int type;
-	int (*handler)(struct sockaddr_nl *, struct nlmsghdr *, void *arg);
-};
 
-extern int nfulnl_open(struct nfulnl_handle *h);
+extern struct nfulnl_handle *nfulnl_open(void);
 extern int nfulnl_close(struct nfulnl_handle *h);
 
 extern int nfulnl_bind_pf(struct nfulnl_handle *h, u_int16_t pf);
 extern int nfulnl_unbind_pf(struct nfulnl_handle *h, u_int16_t pf);
 
-extern int nfulnl_bind_group(struct nfulnl_handle *h,
-			     struct nfulnl_g_handle *qh, u_int16_t num);
-extern int nfulnl_unbind_group(struct nfulnl_g_handle *qh);
+extern struct nfulnl_g_handle *nfulnl_bind_group(struct nfulnl_handle *h,
+						 u_int16_t num);
+extern int nfulnl_unbind_group(struct nfulnl_g_handle *gh);
 
-extern int nfulnl_set_mode(struct nfulnl_g_handle *qh,
+extern int nfulnl_set_mode(struct nfulnl_g_handle *gh,
 			  u_int8_t mode, unsigned int len);
 extern int nfulnl_set_timeout(struct nfulnl_g_handle *gh, u_int32_t timeout);
 extern int nfulnl_set_qthresh(struct nfulnl_g_handle *gh, u_int32_t qthresh);
 extern int nfulnl_set_nlbufsiz(struct nfulnl_g_handle *gh, u_int32_t nlbufsiz);
+
+extern int nfulnl_callback_register(struct nfulnl_g_handle *gh, 
+				    nfulnl_callback *cb, void *data);
+extern int nfulnl_handle_packet(struct nfulnl_handle *h, char *buf, int len);
+
 #endif	/* __LIBNFNETLINK_LOG_H */

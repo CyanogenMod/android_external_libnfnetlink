@@ -14,8 +14,8 @@
 
 struct ipulog_handle
 {
-	struct nfulnl_handle nfulh;
-	struct nfulnl_g_handle nful_gh;
+	struct nfulnl_handle *nfulh;
+	struct nfulnl_g_handle *nful_gh;
 	struct nlmsghdr *last_nlh;
 #if 0
 	int fd;
@@ -94,13 +94,15 @@ struct ipulog_handle *ipulog_create_handle(u_int32_t gmask,
 		return NULL;
 	}
 	memset(h, 0, sizeof(*h));
-	if (nfulnl_open(&h->nfulh) < 0)
+	h->nfulh = nfulnl_open();
+	if (!h->nfulh)
 		goto out_free;
 	
-	if (nfulnl_bind_pf(&h->nfulh, AF_INET) < 0)
+	if (nfulnl_bind_pf(h->nfulh, AF_INET) < 0)
 		goto out_free;
 
-	if (nfulnl_bind_group(&h->nfulh, &h->nful_gh, group) < 0)
+	h->nful_gh = nfulnl_bind_group(h->nfulh, group);
+	if (!h->nful_gh)
 		goto out_free;
 
 	return h;
@@ -113,8 +115,8 @@ out_free:
 
 void ipulog_destroy_handle(struct ipulog_handle *h)
 {
-	nfulnl_unbind_group(&h->nful_gh);
-	nfulnl_close(&h->nfulh);
+	nfulnl_unbind_group(h->nful_gh);
+	nfulnl_close(h->nfulh);
 	free(h);
 }
 
@@ -127,10 +129,10 @@ ulog_packet_msg_t *ipulog_get_packet(struct ipulog_handle *h,
 	struct nfulnl_msg_packet_hdr *hdr;
 
 	if (!h->last_nlh)
-		nlh = nfnl_get_msg_first(&h->nfulh.nfnlh, buf, len);
+		nlh = nfnl_get_msg_first(nfulnl_nfnlh(h->nfulh), buf, len);
 	else {
 next_msg:
-		nlh = nfnl_get_msg_next(&h->nfulh.nfnlh, buf, len);
+		nlh = nfnl_get_msg_next(nfulnl_nfnlh(h->nfulh), buf, len);
 	}
 	h->last_nlh = nlh;
 

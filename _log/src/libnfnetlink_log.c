@@ -28,31 +28,74 @@
 #include <linux/netlink.h>
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_log.h>
+#include <libnfnetlink/libnfnetlink.h>
 #include <libnfnetlink_log/libnfnetlink_log.h>
 
 #define HEADER_LEN	(NLMSG_LENGTH(sizeof(struct nlmsghdr))	\
 			 +NLMSG_LENGTH(sizeof(struct nfgenmsg)))
 
+struct nfulnl_handle
+{
+	struct nfnl_handle nfnlh;
+	struct nfulnl_g_handle *gh_list;
+};
+
+struct nfulnl_g_handle
+{
+	struct nfulnl_g_handle *next;
+	struct nfulnl_handle *h;
+	u_int16_t id;
+
+	nfulnl_callback *cb;
+	void *data;
+};
+
+static int nfulnl_errno;
+
 /***********************************************************************
  * low level stuff 
  ***********************************************************************/
 
-int nfulnl_open(struct nfulnl_handle *h)
+static void del_gh(struct nfulnl_g_handle *gh)
 {
-	int err;
+	struct nfulnl_g_handle *cur_gh, *prev_gh = NULL;
 
-	memset(h, 0, sizeof(*h));
-
-	err = nfnl_open(&h->nfnlh, NFNL_SUBSYS_ULOG, 0);
-	if (err < 0)
-		return err;
-
-	return 0;
+	for (cur_gh = gh->h->gh_list; cur_gh; cur_gh = cur_gh->next) {
+		if (cur_gh == gh) {
+			if (prev_gh)
+				prev_gh->next = gh->next;
+			else
+				gh->h->gh_list = gh->next;
+			return;
+		}
+		prev_gh = cur_gh;
+	}
 }
 
-int nfulnl_close(struct nfulnl_handle *h)
+static void add_gh(struct nfulnl_g_handle *gh)
 {
-	return nfnl_close(&h->nfnlh);
+	gh->next = gh->h->gh_list;
+	gh->h->gh_list = gh;
+}
+
+static struct nfulnl_g_handle *find_gh(struct nfulnl_handle *h, u_int16_t group)
+{
+	struct nfulnl_g_handle *gh;
+
+	for (gh = h->gh_list; gh; gh = gh->next) {
+		if (gh->id == group)
+			return gh;
+	}
+	return NULL;
+}
+
+static int __nfulnl_rcv_cmd(struct nlmsghdr *nlh, struct nfattr *nfa[],
+			    void *data)
+{
+	struct nfulnl_handle *h = data;
+
+	/* FIXME: implement this */
+	return 0;
 }
 
 /* build a NFULNL_MSG_CONFIG message */
@@ -73,6 +116,89 @@ __build_send_cfg_msg(struct nfulnl_handle *h, u_int8_t command,
 	return nfnl_send(&h->nfnlh, nmh);
 }
 
+static int __nfulnl_rcv_pkt(struct nlmsghdr *nlh, struct nfattr *nfa[],
+			    void *data)
+{
+	struct nfgenmsg *nfmsg = NLMSG_DATA(nlh);
+	struct nfulnl_handle *h = data;
+	u_int16_t group = ntohl(nfmsg->res_id);
+	struct nfulnl_g_handle *gh = find_gh(h, group);
+
+	if (!gh)
+		return -EEXIST;
+
+	return gh->cb(gh, nfmsg, nfa, gh->data);
+}
+
+struct nfnl_callback cmd_cb = {
+	.call = &__nfulnl_rcv_cmd,
+	.attr_count = NFULA_CFG_MAX,
+};
+
+struct nfnl_callback pkt_cb = {
+	.call = &__nfulnl_rcv_pkt,
+	.attr_count = NFULA_MAX,
+};
+
+struct nfnl_handle *nfulnl_nfnlh(struct nfulnl_handle *h)
+{
+	return &h->nfnlh;
+}
+
+struct nfulnl_handle *nfulnl_open(void)
+{
+	struct nfulnl_handle *h;
+	int err;
+
+	h = malloc(sizeof(*h));
+	if (!h)
+		return NULL;
+
+	memset(h, 0, sizeof(*h));
+
+	err = nfnl_open(&h->nfnlh, NFNL_SUBSYS_ULOG, NFULNL_MSG_MAX, 0);
+	if (err < 0) {
+		nfulnl_errno = err;
+		return NULL;
+	}
+
+	cmd_cb.data = h;
+	err = nfnl_callback_register(&h->nfnlh, NFULNL_MSG_CONFIG, &cmd_cb);
+	if (err < 0) {
+		nfnl_close(&h->nfnlh);
+		nfulnl_errno = err;
+		return NULL;
+	}
+	pkt_cb.data = h;
+	err = nfnl_callback_register(&h->nfnlh, NFULNL_MSG_PACKET, &pkt_cb);
+	if (err < 0) {
+		nfnl_close(&h->nfnlh);
+		nfulnl_errno = err;
+		return NULL;
+	}
+
+	return h;
+}
+
+int nfulnl_callback_register(struct nfulnl_g_handle *gh, nfulnl_callback *cb,
+			     void *data)
+{
+	gh->data = data;
+	gh->cb = cb;
+
+	return 0;
+}
+
+int nfulnl_handle_packet(struct nfulnl_handle *h, char *buf, int len)
+{
+	return nfnl_handle_packet(&h->nfnlh, buf, len);
+}
+
+int nfulnl_close(struct nfulnl_handle *h)
+{
+	return nfnl_close(&h->nfnlh);
+}
+
 /* bind nf_queue from a specific protocol family */
 int nfulnl_bind_pf(struct nfulnl_handle *h, u_int16_t pf)
 {
@@ -86,21 +212,39 @@ int nfulnl_unbind_pf(struct nfulnl_handle *h, u_int16_t pf)
 }
 
 /* bind this socket to a specific queue number */
-int nfulnl_bind_group(struct nfulnl_handle *h,
-		       struct nfulnl_g_handle *gh, u_int16_t num)
+struct nfulnl_g_handle *
+nfulnl_bind_group(struct nfulnl_handle *h, u_int16_t num)
 {
+	struct nfulnl_g_handle *gh;
+	
+	if (find_gh(h, num))
+		return NULL;
+	
+	gh = malloc(sizeof(*gh));
+	if (!gh)
+		return NULL;
+
+	memset(gh, 0, sizeof(*gh));
 	gh->h = h;
 	gh->id = num;
 
-	return __build_send_cfg_msg(h, NFULNL_CFG_CMD_BIND, num, 0);
+	if (__build_send_cfg_msg(h, NFULNL_CFG_CMD_BIND, num, 0) < 0) {
+		free(gh);
+		return NULL;
+	}
+
+	add_gh(gh);
+	return gh;
 }
 
 /* unbind this socket from a specific queue number */
 int nfulnl_unbind_group(struct nfulnl_g_handle *gh)
 {
 	int ret = __build_send_cfg_msg(gh->h, NFULNL_CFG_CMD_UNBIND, gh->id, 0);
-	if (ret == 0)
-		gh->h = NULL;
+	if (ret == 0) {
+		del_gh(gh);
+		free(gh);
+	}
 
 	return ret;
 }
@@ -166,5 +310,6 @@ int nfulnl_set_nlbufsiz(struct nfulnl_g_handle *gh, u_int32_t nlbufsiz)
 	/* we try to have space for at least 10 messages in the socket buffer */
 	if (status >= 0)
 		nfnl_rcvbufsiz(&gh->h->nfnlh, 10*nlbufsiz);
-}
 
+	return status;
+}
