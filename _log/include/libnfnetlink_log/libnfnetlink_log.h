@@ -16,7 +16,10 @@
 struct nfulnl_handle;
 struct nfulnl_g_handle;
 
+extern int nfulnl_errno;
+
 extern struct nfnl_handle *nfulnl_nfnlh(struct nfulnl_handle *h);
+extern int nfulnl_fd(struct nfulnl_handle *h);
 
 typedef nfulnl_callback(struct nfulnl_g_handle *gh, struct nfgenmsg *nfmsg,
 			struct nfattr *nfa[], void *data);
