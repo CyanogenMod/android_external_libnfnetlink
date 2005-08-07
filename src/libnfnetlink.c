@@ -157,6 +157,7 @@ int nfnl_sendiov(const struct nfnl_handle *nfnlh, const struct iovec *iov,
 	msg.msg_name = (struct sockaddr *) &nfnlh->peer;
 	msg.msg_namelen = sizeof(nfnlh->peer);
 	msg.msg_iov = (struct iovec *) iov;
+	msg.msg_iovlen = num;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
 	msg.msg_flags = 0;
