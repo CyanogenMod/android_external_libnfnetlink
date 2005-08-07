@@ -396,7 +396,7 @@ int nfnl_talk(struct nfnl_handle *nfnlh, struct nlmsghdr *n, pid_t peer,
 					if (err < 0)
 						return err;
 				}
-				continue;
+				goto cont;
 			}
 
 			if (h->nlmsg_type == NLMSG_ERROR) {
@@ -410,7 +410,7 @@ int nfnl_talk(struct nfnl_handle *nfnlh, struct nlmsghdr *n, pid_t peer,
 							memcpy(answer, h, h->nlmsg_len);
 						return 0;
 					}
-					perror("CTNETLINK answers");
+					perror("NFNETLINK answers");
 				}
 				return -1;
 			}
@@ -420,7 +420,7 @@ int nfnl_talk(struct nfnl_handle *nfnlh, struct nlmsghdr *n, pid_t peer,
 			}
 
 			nfnl_error("Unexpected reply!\n");
-
+cont:
 			status -= NLMSG_ALIGN(len);
 			h = (struct nlmsghdr *)((char *)h + NLMSG_ALIGN(len));
 		}
@@ -703,9 +703,8 @@ int nfnl_check_attributes(const struct nfnl_handle *h,
 static int __nfnl_handle_msg(struct nfnl_handle *h, struct nlmsghdr *nlh,
 			     int len)
 {
-	u_int8_t type;
+	u_int8_t type = NFNL_MSG_TYPE(nlh->nlmsg_type);
 	int err = 0;
-	struct nfattr *nfa[h->cb_count];
 
 	if (NFNL_SUBSYS_ID(nlh->nlmsg_type) != h->subsys_id)
 		return -1;
@@ -713,12 +712,12 @@ static int __nfnl_handle_msg(struct nfnl_handle *h, struct nlmsghdr *nlh,
 	if (nlh->nlmsg_len < NLMSG_LENGTH(NLMSG_ALIGN(sizeof(struct nfgenmsg))))
 		return -1;
 
-	type = NFNL_MSG_TYPE(nlh->nlmsg_type);
-
 	if (type >= h->cb_count)
 		return -1;
 
 	if (h->cb[type].attr_count) {
+		struct nfattr *nfa[h->cb[type].attr_count];
+
 		err = nfnl_check_attributes(h, nlh, nfa);
 		if (err < 0)
 			return err;
