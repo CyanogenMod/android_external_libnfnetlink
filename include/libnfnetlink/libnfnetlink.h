@@ -14,6 +14,9 @@
 #define NLMSG_TAIL(nlh) \
 	(((void *) (nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len))
 
+#define NFNL_HEADER_LEN	(NLMSG_LENGTH(sizeof(struct nlmsghdr))	\
+			 +NLMSG_LENGTH(sizeof(struct nfgenmsg)))
+
 #define NFNL_BUFFSIZE		8192
 
 struct nfnl_callback {
