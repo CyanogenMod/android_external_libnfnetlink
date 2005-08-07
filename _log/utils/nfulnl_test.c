@@ -29,6 +29,7 @@ static int print_pkt(struct nfattr *tb[])
 		u_int32_t ifi = ntohl(*(u_int32_t *)NFA_DATA(tb[NFULA_IFINDEX_OUTDEV-1]));
 		printf("outdev=%u ", ifi);
 	}
+#if 0
 	if (tb[NFULA_IFINDEX_PHYSINDEV-1]) {
 		u_int32_t ifi = ntohl(*(u_int32_t *)NFA_DATA(tb[NFULA_IFINDEX_PHYSINDEV-1]));
 		printf("physindev=%u ", ifi);
@@ -37,12 +38,13 @@ static int print_pkt(struct nfattr *tb[])
 		u_int32_t ifi = ntohl(*(u_int32_t *)NFA_DATA(tb[NFULA_IFINDEX_PHYSOUTDEV-1]));
 		printf("physoutdev=%u ", ifi);
 	}
+#endif
 	if (tb[NFULA_PREFIX-1]) {
 		char *prefix = NFA_DATA(tb[NFULA_PREFIX-1]);
 		printf("prefix=\"%s\" ", prefix);
 	}
 	if (tb[NFULA_PAYLOAD-1]) {
-		printf("payload_len=%d\n", NFA_PAYLOAD(tb[NFULA_PAYLOAD-1]));
+		printf("payload_len=%d ", NFA_PAYLOAD(tb[NFULA_PAYLOAD-1]));
 	}
 
 	fputc('\n', stdout);
@@ -66,21 +68,49 @@ int main(int argc, char **argv)
 	char buf[4096];
 
 	h = nfulnl_open();
-	if (!h)
+	if (!h) {
+		fprintf(stderr, "error during nfulnl_open()\n");
 		exit(1);
+	}
 
-	nfulnl_unbind_pf(h, AF_INET);
-	nfulnl_bind_pf(h, AF_INET);
+	printf("unbinding existing nf_log handler for AF_INET (if any)\n");
+	if (nfulnl_unbind_pf(h, AF_INET) < 0) {
+		fprintf(stderr, "error nfulnl_unbind_pf()\n");
+		exit(1);
+	}
+
+	printf("binding nfnetlink_log to AF_INET\n");
+	if (nfulnl_bind_pf(h, AF_INET) < 0) {
+		fprintf(stderr, "error during nfulnl_bind_pf()\n");
+		exit(1);
+	}
+	printf("binding this socket to group 0\n");
 	qh = nfulnl_bind_group(h, 0);
+	if (!qh) {
+		fprintf(stderr, "no handle for grup 0\n");
+		exit(1);
+	}
+
+	printf("binding this socket to group 100\n");
 	qh100 = nfulnl_bind_group(h, 100);
-	nfulnl_set_mode(qh, NFULNL_COPY_PACKET, 0xffff);
+	if (!qh100) {
+		fprintf(stderr, "no handle for group 100\n");
+		exit(1);
+	}
+
+	printf("setting copy_packet mode\n");
+	if (nfulnl_set_mode(qh, NFULNL_COPY_PACKET, 0xffff) < 0) {
+		fprintf(stderr, "can't set packet copy mode\n");
+		exit(1);
+	}
 
 	nh = nfulnl_nfnlh(h);
 	fd = nfnl_fd(nh);
-#if 1
-	nfulnl_callback_register(qh, &cb, NULL);
-#endif
 
+	printf("registering callback for group 0\n");
+	nfulnl_callback_register(qh, &cb, NULL);
+
+	printf("going into main loop\n");
 	while ((rv = recv(fd, buf, sizeof(buf), 0)) && rv >= 0) {
 		struct nlmsghdr *nlh;
 		printf("pkt received (len=%u)\n", rv);
@@ -101,14 +131,24 @@ int main(int argc, char **argv)
 			print_pkt(tb);
 		}
 #else
+		/* handle messages in just-received packet */
 		nfulnl_handle_packet(h, buf, rv);
 #endif
 	}
 
+	printf("unbinding from group 100\n");
 	nfulnl_unbind_group(qh100);
+	printf("unbinding from group 0\n");
 	nfulnl_unbind_group(qh);
-	nfulnl_unbind_pf(h, AF_INET);
 
+#ifdef INSANE
+	/* norally, applications SHOULD NOT issue this command,
+	 * since it detaches other programs/sockets from AF_INET, too ! */
+	printf("unbinding from AF_INET\n");
+	nfulnl_unbind_pf(h, AF_INET);
+#endif
+
+	printf("closing handle\n");
 	nfulnl_close(h);
 
 	exit(0);
