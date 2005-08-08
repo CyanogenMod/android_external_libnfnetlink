@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <libnfnetlink/libnfnetlink.h>
 #include <libnfnetlink_log/libnfnetlink_log.h>
 #include <libnfnetlink_log/libipulog.h>
 
@@ -85,6 +86,7 @@ u_int32_t ipulog_group2gmask(u_int32_t group)
 struct ipulog_handle *ipulog_create_handle(u_int32_t gmask, 
 					   u_int32_t rcvbufsize)
 {
+	int rv;
 	struct ipulog_handle *h;
 	unsigned int group = gmask2group(gmask);
 
@@ -98,7 +100,9 @@ struct ipulog_handle *ipulog_create_handle(u_int32_t gmask,
 	if (!h->nfulh)
 		goto out_free;
 	
-	if (nfulnl_bind_pf(h->nfulh, AF_INET) < 0)
+	/* bind_pf returns EEXIST if we are already registered */
+	rv = nfulnl_bind_pf(h->nfulh, AF_INET);
+	if (rv < 0 && rv != -EEXIST)
 		goto out_free;
 
 	h->nful_gh = nfulnl_bind_group(h->nfulh, group);
@@ -128,10 +132,11 @@ ulog_packet_msg_t *ipulog_get_packet(struct ipulog_handle *h,
 	struct nfattr *tb[NFULA_MAX];
 	struct nfulnl_msg_packet_hdr *hdr;
 
-	if (!h->last_nlh)
+	if (!h->last_nlh) {
+		printf("first\n");
 		nlh = nfnl_get_msg_first(nfulnl_nfnlh(h->nfulh), buf, len);
-	else {
-next_msg:
+	}else {
+next_msg:	printf("next\n");
 		nlh = nfnl_get_msg_next(nfulnl_nfnlh(h->nfulh), buf, len);
 	}
 	h->last_nlh = nlh;
@@ -139,7 +144,8 @@ next_msg:
 	if (!nlh)
 		return NULL;
 
-	nfnl_parse_attr(tb, NFULA_MAX, NFM_NFA(nlh), NFM_PAYLOAD(nlh));
+	nfnl_parse_attr(tb, NFULA_MAX, NFM_NFA(NLMSG_DATA(nlh)),
+			NFM_PAYLOAD(nlh));
 	
 	if (!tb[NFULA_PACKET_HDR-1])
 		goto next_msg;
@@ -199,7 +205,9 @@ next_msg:
 ssize_t ipulog_read(struct ipulog_handle *h, unsigned char *buf,
 		    size_t len, int timeout)
 {
-	//return nfnl_listen();
+	/* 'timeout' was never implemented in the original libipulog,
+	 * so we don't bother emulating it */
+	return nfnl_recv(nfulnl_nfnlh(h->nfulh), buf, len);
 }
 
 /* print a human readable description of the last error to stderr */
