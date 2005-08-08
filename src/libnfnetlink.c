@@ -43,6 +43,7 @@ void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc)
 	       (nlmsg_data - (void *)nlh));
 	printf("  NFM_NFA(NLMSG_DATA(nlh)) = %p (+%td bytes)\n",
 		nfa, ((void *)nfa - (void *)nlh));
+	printf("  NFM_PAYLOAD(nlh) = %u\n", len);
 	printf("  nlmsg_type = %u, nlmsg_len = %u, nlmsg_seq = %u "
 		"nlmsg_flags = 0x%x\n", nlh->nlmsg_type, nlh->nlmsg_len,
 		nlh->nlmsg_seq, nlh->nlmsg_flags);
@@ -221,6 +222,36 @@ nfnl_parse_hdr(const struct nfnl_handle *nfnlh,
 	return ((void *)nlh + NLMSG_LENGTH(sizeof(struct nfgenmsg)));
 }
 
+ssize_t 
+nfnl_recv(const struct nfnl_handle *h, unsigned char *buf, size_t len)
+{
+	socklen_t addrlen;
+	int status;
+	struct nlmsghdr *nlh;
+	struct sockaddr_nl peer;
+	
+	if (len < sizeof(struct nlmsgerr)
+	    || len < sizeof(struct nlmsghdr))
+		return -1; 
+
+	addrlen = sizeof(h->peer);
+	status = recvfrom(h->fd, buf, len, 0, (struct sockaddr *)&peer,	
+			&addrlen);
+	if (status <= 0)
+		return status;
+
+	if (addrlen != sizeof(peer))
+		return -1;
+
+	if (peer.nl_pid != 0)
+		return -1;
+
+	nlh = (struct nlmsghdr *)buf;
+	if (nlh->nlmsg_flags & MSG_TRUNC || status > len)
+		return -1;
+
+	return status;
+}
 /**
  * nfnl_listen: listen for one or more netlink messages
  *

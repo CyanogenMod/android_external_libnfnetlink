@@ -65,6 +65,7 @@ extern int nfnl_listen(struct nfnl_handle *,
                       void *);
 
 /* receiving */
+extern ssize_t nfnl_recv(const struct nfnl_handle *h, unsigned char *buf, size_t len);
 extern int nfnl_callback_register(struct nfnl_handle *,
 				  u_int8_t type, struct nfnl_callback *cb);
 extern int nfnl_callback_unregister(struct nfnl_handle *, u_int8_t type);
