@@ -257,6 +257,16 @@ nfnl_recv(const struct nfnl_handle *h, unsigned char *buf, size_t len)
  *
  * nfnhl: libnfnetlink handle
  * handler: callback function to be called for every netlink message
+ *          - the callback handler should normally return 0
+ *          - but may return a negative error code which will cause
+ *            nfnl_listen to return immediately with the same error code
+ *          - or return a postivie error code which will cause 
+ *            nfnl_listen to return after it has finished processing all
+ *            the netlink messages in the current packet
+ *          Thus a positive error code will terminate nfnl_listen "soon"
+ *          without any loss of data, a negative error code will terminate
+ *          nfnl_listen "very soon" and throw away data already read from
+ *          the netlink socket.
  * jarg: opaque argument passed on to callback
  *
  */
@@ -270,6 +280,7 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 	int remain;
 	struct nlmsghdr *h;
 	struct nlmsgerr *msgerr;
+	int quit=0;
 
 	struct msghdr msg = {
 		(void *)&nladdr, sizeof(nladdr),
@@ -283,7 +294,7 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 	iov.iov_base = buf;
 	iov.iov_len = sizeof(buf);
 
-	while (1) {
+	while (! quit) {
 		remain = recvmsg(nfnlh->fd, &msg, 0);
 		if (remain < 0) {
 			if (errno == EINTR)
@@ -332,6 +343,7 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 			err = handler(&nladdr, h, jarg);
 			if (err < 0)
 				return err;
+			quit |= err;
 		
 			/* FIXME: why not _NEXT macros, etc.? */
 			//h = NLMSG_NEXT(h, remain);
@@ -348,7 +360,7 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 		}
 	}
 
-	return 0;
+	return quit;
 }
 
 int nfnl_talk(struct nfnl_handle *nfnlh, struct nlmsghdr *n, pid_t peer,
