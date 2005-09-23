@@ -9,9 +9,9 @@
 #ifndef __LIBNFNETLINK_LOG_H
 #define __LIBNFNETLINK_LOG_H
 
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netfilter/nfnetlink_log.h>
 #include <libnfnetlink/libnfnetlink.h>
+//#include <linux/netfilter/nfnetlink.h>
+#include <linux/netfilter/nfnetlink_log.h>
 
 struct nfulnl_handle;
 struct nfulnl_g_handle;
@@ -21,8 +21,8 @@ extern int nfulnl_errno;
 extern struct nfnl_handle *nfulnl_nfnlh(struct nfulnl_handle *h);
 extern int nfulnl_fd(struct nfulnl_handle *h);
 
-typedef nfulnl_callback(struct nfulnl_g_handle *gh, struct nfgenmsg *nfmsg,
-			struct nfattr *nfa[], void *data);
+typedef int nfulnl_callback(struct nfulnl_g_handle *gh, struct nfgenmsg *nfmsg,
+			    struct nfattr *nfa[], void *data);
 
 
 extern struct nfulnl_handle *nfulnl_open(void);
