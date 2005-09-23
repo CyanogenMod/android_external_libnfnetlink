@@ -85,6 +85,20 @@ extern struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
 					  const unsigned char *buf,
 					  size_t len);
 
+#define nfnl_get_data(tb, attr, type)			\
+	({	type __ret = 0;				\
+	 if (tb[attr-1])				\
+	 __ret = *(type *)NFA_DATA(tb[attr-1]);		\
+	 __ret;						\
+	 })
+
+#define nfnl_get_pointer_to_data(tb, attr, type)	\
+	({	type *__ret = NULL;			\
+	 if (tb[attr-1])				\
+	 __ret = NFA_DATA(tb[attr-1]);			\
+	 __ret;						\
+	 })
+
 /* nfnl attribute handling functions */
 extern int nfnl_addattr_l(struct nlmsghdr *, int, int, void *, int);
 extern int nfnl_addattr32(struct nlmsghdr *, int, int, u_int32_t);
