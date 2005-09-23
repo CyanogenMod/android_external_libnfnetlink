@@ -1,27 +1,37 @@
-Infrastructure libnfnetlink / libctnetlink
+libnfnetlink - userspace library for handling of netfilter netlink messages
+(C) 2001-2005 Netfilter Core Team <coreteam@netfilter.org>
+===========================================================================
 
-libnfnetlink
-- provides low layer communications between netlink socket and high layer
-  library
-- provides generic functions to create and parse nf_attr's
-- hides all details of netlink socket
-- provides open/close/receive/listen functions only to be used by other 
-  libraries (libctnetlink/libpkttnetlink/...)
+What is nfnetlink?
 
-
-libctnetlink:
-- provides high layer interface for applications interfacing with conntrack
-  kernel code
-- event messages (to be implemented)
-- reading and deleting ip_conntrack's
-- reading, deleting and creating ip_conntrack_expect's
+nfnetlink is a netlink(7) based kernel/userspace transport layer.  It
+provides a unified kernel/userspace interface for the various netfilter
+subsystems
 
 
+What is libnfnetlink?
+
+libnfnetlink is a userspace library that provides some low-level
+nfnetlink handling functions.  It is used as a foundation for other, netfilter
+subsystem specific libraries such as libnfnetlink_conntrack, libnfnetlink_log
+and libnfnetlink_queue.
 
 
+Where can I find documentation?
 
-Layout of nfnetlink data packet
+At the moment, you will have to RTFS.  Sorry, but we have barely anough
+manpower to keep development ongoing.  If you want to conribute documentation,
+please contact us.
 
 
-struct nlmsghdr		- netlink internal 
-struct nfgenmsg		- information about 
+It has bugs.  Where do I report them?
+
+Please report all libnfnetlink bugs to https://bugzilla.netfilter.org/, using
+the "libnfnetlink" Product.
+
+
+Where do I get support?
+
+The netfilter@lists.netfilter.org and netfilter-devel@lists.netfilter.org
+mailinglists server as support forum.
+
