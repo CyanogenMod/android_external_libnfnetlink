@@ -10,7 +10,6 @@
 #define __LIBNFNETLINK_LOG_H
 
 #include <libnfnetlink/libnfnetlink.h>
-//#include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_log.h>
 
 struct nfulnl_handle;
