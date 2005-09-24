@@ -6,7 +6,7 @@ What is nfnetlink?
 
 nfnetlink is a netlink(7) based kernel/userspace transport layer.  It
 provides a unified kernel/userspace interface for the various netfilter
-subsystems
+subsystems, such as connection tracking, logging and queueing.  
 
 
 What is libnfnetlink?
@@ -15,6 +15,14 @@ libnfnetlink is a userspace library that provides some low-level
 nfnetlink handling functions.  It is used as a foundation for other, netfilter
 subsystem specific libraries such as libnfnetlink_conntrack, libnfnetlink_log
 and libnfnetlink_queue.
+
+
+Prerequirements for libnfnetlink
+
+You will need kernel headers from a kernel that has nfnetlink support.  The
+first official kernel release to include nfnetlink support is 2.6.14.  
+You can specify the location of your kernel sources using the "--with-kernel="
+configure option.
 
 
 Where can I find documentation?
