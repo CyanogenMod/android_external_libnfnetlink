@@ -65,6 +65,7 @@ int nfnl_fd(struct nfnl_handle *h)
  *
  * nfnlh: libnfnetlink handle to be allocated by user
  * subsys_id: which nfnetlink subsystem we are interested in
+ * cb_count: number of callbacks that are used maximum.
  * subscriptions: netlink groups we want to be subscribed to
  *
  */
