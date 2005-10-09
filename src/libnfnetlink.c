@@ -50,7 +50,7 @@ void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc)
 
 	while (NFA_OK(nfa, len)) {
 		printf("    nfa@%p: nfa_type=%u, nfa_len=%u\n",
-			nfa, nfa->nfa_type, nfa->nfa_len);
+			nfa, NFA_TYPE(nfa), nfa->nfa_len);
 		nfa = NFA_NEXT(nfa,len);
 	}
 }
@@ -584,8 +584,8 @@ int nfnl_parse_attr(struct nfattr *tb[], int max, struct nfattr *nfa, int len)
 	memset(tb, 0, sizeof(struct nfattr *) * max);
 
 	while (NFA_OK(nfa, len)) {
-		if (nfa->nfa_type <= max)
-			tb[nfa->nfa_type-1] = nfa;
+		if (NFA_TYPE(nfa) <= max)
+			tb[NFA_TYPE(nfa)-1] = nfa;
                 nfa = NFA_NEXT(nfa,len);
 	}
 	if (len)
@@ -732,7 +732,7 @@ int nfnl_check_attributes(const struct nfnl_handle *h,
 		int attrlen = nlh->nlmsg_len - NLMSG_ALIGN(min_len);
 
 		while (NFA_OK(attr, attrlen)) {
-			unsigned int flavor = attr->nfa_type;
+			unsigned int flavor = NFA_TYPE(attr);
 			if (flavor) {
 				if (flavor > cb->attr_count)
 					return -EINVAL;
