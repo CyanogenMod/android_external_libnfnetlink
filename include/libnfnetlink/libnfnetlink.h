@@ -23,6 +23,11 @@
 
 #define NFNL_BUFFSIZE		8192
 
+struct nfnlhdr {
+	struct nlmsghdr nlh;
+	struct nfgenmsg nfmsg;
+};
+
 struct nfnl_callback {
 	int (*call)(struct nlmsghdr *nlh, struct nfattr *nfa[], void *data);
 	void *data;
@@ -113,7 +118,7 @@ extern int nfnl_parse_attr(struct nfattr **, int, struct nfattr *, int);
 	nfnl_parse_attr((tb), (max), NFA_DATA((nfa)), NFA_PAYLOAD((nfa)))
 #define nfnl_nest(nlh, bufsize, type) 				\
 ({	struct nfattr *__start = NLMSG_TAIL(nlh);		\
-	nfnl_addattr_l(nlh, bufsize, type, NULL, 0); 		\
+	nfnl_addattr_l(nlh, bufsize, (NFNL_NFA_NEST | type), NULL, 0); 	\
 	__start; })
 #define nfnl_nest_end(nlh, tail) 				\
 ({	(tail)->nfa_len = (void *) NLMSG_TAIL(nlh) - (void *) tail; })
@@ -125,4 +130,29 @@ extern unsigned int nfnl_rcvbufsiz(struct nfnl_handle *h, unsigned int size);
 
 
 extern void nfnl_dump_packet(struct nlmsghdr *, int, char *);
+
+/* Pablo: What is the equivalence of be64_to_cpu in userspace?
+ * 
+ * Harald: Good question.  I don't think there's a standard way [yet?], 
+ * so I'd suggest manually implementing it by "#if little endian" bitshift
+ * operations in C (at least for now).
+ *
+ * All the payload of any nfattr will always be in network byte order.
+ * This would allow easy transport over a real network in the future 
+ * (e.g. jamal's netlink2).
+ *
+ * Pablo: I've called it __be64_to_cpu instead of be64_to_cpu, since maybe 
+ * there will one in the userspace headers someday. We don't want to
+ * pollute POSIX space naming,
+ */
+
+#include <byteswap.h>
+#if __BYTE_ORDER == __BIG_ENDIAN
+#  define __be64_to_cpu(x)	(x)
+# else
+# if __BYTE_ORDER == __LITTLE_ENDIAN
+#  define __be64_to_cpu(x)	__bswap_64(x)
+# endif
+#endif
+
 #endif /* __LIBNFNETLINK_H */

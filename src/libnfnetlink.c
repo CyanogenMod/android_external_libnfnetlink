@@ -7,6 +7,11 @@
  *
  * this software may be used and distributed according to the terms
  * of the gnu general public license, incorporated herein by reference.
+ *
+ * 2005-09-14 Pablo Neira Ayuso <pablo@netfilter.org>: 
+ * 	Define structure nfnlhdr
+ * 	Added __be64_to_cpu function
+ *	Use NFA_TYPE macro to get the attribute type
  */
 
 #include <stdlib.h>
