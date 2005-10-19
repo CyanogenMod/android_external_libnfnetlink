@@ -1,2 +1,0 @@
-
-SUBDIRS = libnetfilter_conntrack
