@@ -1,6 +1,9 @@
 /* libnfnetlink.h: Header file for generic netfilter netlink interface
  *
  * (C) 2002 Harald Welte <laforge@gnumonks.org>
+ *
+ * 2005-10-29 Pablo Neira Ayuso <pablo@netfilter.org>:
+ * 	Fix NFNL_HEADER_LEN
  */
 
 #ifndef __LIBNFNETLINK_H
@@ -18,8 +21,8 @@
 #define NLMSG_TAIL(nlh) \
 	(((void *) (nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len))
 
-#define NFNL_HEADER_LEN	(NLMSG_LENGTH(sizeof(struct nlmsghdr))	\
-			 +NLMSG_LENGTH(sizeof(struct nfgenmsg)))
+#define NFNL_HEADER_LEN	(NLMSG_ALIGN(sizeof(struct nlmsghdr))	\
+			 +NLMSG_ALIGN(sizeof(struct nfgenmsg)))
 
 #define NFNL_BUFFSIZE		8192
 
