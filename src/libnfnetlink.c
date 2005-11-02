@@ -462,7 +462,7 @@ int nfnl_talk(struct nfnl_handle *nfnlh, struct nlmsghdr *n, pid_t peer,
 					}
 					perror("NFNETLINK answers");
 				}
-				return -1;
+				return err->error;
 			}
 			if (answer) {
 				memcpy(answer, h, h->nlmsg_len);
