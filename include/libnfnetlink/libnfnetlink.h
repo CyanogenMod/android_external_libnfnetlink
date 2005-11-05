@@ -97,6 +97,9 @@ extern struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
 					  const unsigned char *buf,
 					  size_t len);
 
+#define nfnl_attr_present(tb, attr)			\
+	(tb[attr-1])
+
 #define nfnl_get_data(tb, attr, type)			\
 	({	type __ret = 0;				\
 	 if (tb[attr-1])				\
