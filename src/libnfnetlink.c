@@ -306,9 +306,11 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 			if (errno == EINTR)
 				continue;
 			/* Bad file descriptor */
-			if (errno == EBADF)
+			else if (errno == EBADF)
 				break;
-			nfnl_error("recvmsg overrun");
+			else if (errno == EAGAIN)
+				break;
+			nfnl_error("recvmsg overrun: %s", strerror(errno));
 			continue;
 		}
 		if (remain == 0) {
