@@ -1,3 +1,3 @@
 
-pkginclude_HEADERS = libnfnetlink.h
+pkginclude_HEADERS = libnfnetlink.h linux_nfnetlink.h
 

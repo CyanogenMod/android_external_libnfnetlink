@@ -16,7 +16,7 @@
 #include <linux/types.h>
 #include <sys/socket.h>	/* for sa_family_t */
 #include <linux/netlink.h>
-#include <linux/netfilter/nfnetlink.h>
+#include <libnfnetlink/linux_nfnetlink.h>
 
 #define NLMSG_TAIL(nlh) \
 	(((void *) (nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len))
