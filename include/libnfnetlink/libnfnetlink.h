@@ -4,6 +4,8 @@
  *
  * 2005-10-29 Pablo Neira Ayuso <pablo@netfilter.org>:
  * 	Fix NFNL_HEADER_LEN
+ * 2005-11-13 Pablo Neira Ayuso <pablo@netfilter.org>:
+ * 	Define NETLINK_NETFILTER if it's undefined
  */
 
 #ifndef __LIBNFNETLINK_H
@@ -17,6 +19,10 @@
 #include <sys/socket.h>	/* for sa_family_t */
 #include <linux/netlink.h>
 #include <libnfnetlink/linux_nfnetlink.h>
+
+#ifndef NETLINK_NETFILTER
+#define NETLINK_NETFILTER 12
+#endif
 
 #define NLMSG_TAIL(nlh) \
 	(((void *) (nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len))
