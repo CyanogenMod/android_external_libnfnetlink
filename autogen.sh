@@ -7,14 +7,15 @@ include ()
     # the headers that we need from the lastest kernel version at autogen
     # stage.
 
-    INCLUDEDIR=/lib/modules/`uname -r`/build/include/linux
+    INCLUDEDIR=${KERNEL_DIR:-/lib/modules/`uname -r`/build}/include/linux
+
     if [ -f $INCLUDEDIR/netfilter/nfnetlink.h ]
     then
     	TARGET=include/libnfnetlink/linux_nfnetlink.h
     	echo "Copying nfnetlink.h to linux_nfnetlink.h"
     	cp $INCLUDEDIR/netfilter/nfnetlink.h $TARGET
     else
-    	echo "can't find nfnetlink.h kernel file"
+    	echo "can't find nfnetlink.h kernel file in $INCLUDEDIR"
     	exit 1
     fi
 }
