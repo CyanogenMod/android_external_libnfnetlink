@@ -113,7 +113,7 @@ int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 		return -1;
 	}
 	if (nfnlh->local.nl_family != AF_NETLINK) {
-		nfnl_error("Badd address family %d", nfnlh->local.nl_family);
+		nfnl_error("Bad address family %d", nfnlh->local.nl_family);
 		return -1;
 	}
 	nfnlh->seq = time(NULL);
