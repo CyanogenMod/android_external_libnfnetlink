@@ -1,7 +1,8 @@
 /* libnfnetlink.c: generic library for communication with netfilter
  *
- * (C) 2001 by Jay Schulist <jschlst@samba.org>
- * (C) 2002-2005 by Harald Welte <laforge@gnumonks.org>
+ * (C) 2002-2006 by Harald Welte <laforge@gnumonks.org>
+ *
+ * Based on some original ideas from Jay Schulist <jschlst@samba.org>
  *
  * Development of this code funded by Astaro AG (http://www.astaro.com)
  *
@@ -12,6 +13,9 @@
  * 	Define structure nfnlhdr
  * 	Added __be64_to_cpu function
  *	Use NFA_TYPE macro to get the attribute type
+ *
+ * 2006-01-14 Harald Welte <laforge@netfilter.org>:
+ * 	introduce nfnl_subsys_handle
  */
 
 #include <stdlib.h>
@@ -35,6 +39,26 @@
 #else
 #define nfnl_debug_dump_packet(a, b, ...)
 #endif
+
+struct nfnl_subsys_handle {
+	struct nfnl_handle 	*nfnlh;
+	u_int32_t		subscriptions;
+	u_int8_t		subsys_id;
+	u_int8_t		cb_count;
+	struct nfnl_callback 	*cb;	/* array of callbacks */
+};
+
+#define		NFNL_MAX_SUBSYS			16 /* enough for now */
+struct nfnl_handle {
+	int			fd;
+	struct sockaddr_nl	local;
+	struct sockaddr_nl	peer;
+	u_int32_t		subscriptions;
+	u_int32_t		seq;
+	u_int32_t		dump;
+	struct nlmsghdr 	*last_nlhdr;
+	struct nfnl_subsys_handle subsys[NFNL_MAX_SUBSYS+1];
+};
 
 void nfnl_dump_packet(struct nlmsghdr *nlh, int received_len, char *desc)
 {
@@ -65,44 +89,55 @@ int nfnl_fd(struct nfnl_handle *h)
 	return h->fd;
 }
 
+static int recalc_rebind_subscriptions(struct nfnl_handle *nfnlh)
+{
+	int i;
+	u_int32_t new_subscriptions = 0;
+
+	for (i = 0; i < NFNL_MAX_SUBSYS; i++)
+		new_subscriptions |= nfnlh->subsys[i].subscriptions;
+
+	if (nfnlh->subscriptions != new_subscriptions) {
+		int err;
+
+		nfnlh->local.nl_groups = new_subscriptions;
+		err = bind(nfnlh->fd, (struct sockaddr *)&nfnlh->local,
+			   sizeof(nfnlh->local));
+		if (err < 0) {
+			nfnl_error("bind(netlink): %s", strerror(errno));
+			return err;
+		}
+		nfnlh->subscriptions = new_subscriptions;
+	}
+
+	return 0;
+}
+
 /**
  * nfnl_open - open a netlink socket
  *
  * nfnlh: libnfnetlink handle to be allocated by user
- * subsys_id: which nfnetlink subsystem we are interested in
- * cb_count: number of callbacks that are used maximum.
- * subscriptions: netlink groups we want to be subscribed to
  *
  */
-int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id, 
-	      u_int8_t cb_count, u_int32_t subscriptions)
+struct nfnl_handle *nfnl_open(void)
 {
-	int err;
+	struct nfnl_handle *nfnlh;
 	unsigned int addr_len;
-	struct nfnl_callback *cb;
+	int err;
 
-	cb = malloc(sizeof(*cb) * cb_count);
-	if (!cb)
-		return -ENOMEM;
-	
+	nfnlh = malloc(sizeof(*nfnlh));
+	if (!nfnlh)
+		return NULL;
+
 	memset(nfnlh, 0, sizeof(*nfnlh));
 	nfnlh->fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_NETFILTER);
 	if (nfnlh->fd < 0) {
 		nfnl_error("socket(netlink): %s", strerror(errno));
-		return nfnlh->fd;
+		goto err_free;
 	}
 
 	nfnlh->local.nl_family = AF_NETLINK;
-	nfnlh->local.nl_groups = subscriptions;
-
 	nfnlh->peer.nl_family = AF_NETLINK;
-
-	err = bind(nfnlh->fd, (struct sockaddr *)&nfnlh->local,
-		   sizeof(nfnlh->local));
-	if (err < 0) {
-		nfnl_error("bind(netlink): %s", strerror(errno));
-		return err;
-	}
 
 	addr_len = sizeof(nfnlh->local);
 	err = getsockname(nfnlh->fd, (struct sockaddr *)&nfnlh->local, 
@@ -110,18 +145,75 @@ int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 	if (addr_len != sizeof(nfnlh->local)) {
 		nfnl_error("Bad address length (%u != %zd)", addr_len,
 			   sizeof(nfnlh->local));
-		return -1;
+		goto err_close;
 	}
 	if (nfnlh->local.nl_family != AF_NETLINK) {
 		nfnl_error("Bad address family %d", nfnlh->local.nl_family);
-		return -1;
+		goto err_close;
 	}
 	nfnlh->seq = time(NULL);
-	nfnlh->subsys_id = subsys_id;
-	nfnlh->cb_count = cb_count;
-	nfnlh->cb = cb;
 
-	return 0;
+	return nfnlh;
+
+err_close:
+	close(nfnlh->fd);
+err_free:
+	free(nfnlh);
+	return NULL;
+}
+
+/**
+ * nfnl_subsys_open - open a netlink subsystem
+ *
+ * nfnlh: libnfnetlink handle
+ * subsys_id: which nfnetlink subsystem we are interested in
+ * cb_count: number of callbacks that are used maximum.
+ * subscriptions: netlink groups we want to be subscribed to
+ */
+struct nfnl_subsys_handle *
+nfnl_subsys_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
+		 u_int8_t cb_count, u_int32_t subscriptions)
+{
+	struct nfnl_subsys_handle *ssh;
+
+	if (subsys_id > NFNL_MAX_SUBSYS) { 
+
+		return NULL;
+	}
+
+	ssh = &nfnlh->subsys[subsys_id];
+	if (ssh->cb) {
+
+		return NULL;
+	}
+
+	ssh->cb = malloc(sizeof(*(ssh->cb)) * cb_count);
+	if (!ssh->cb) {
+		
+		return NULL;
+	}
+
+	ssh->nfnlh = nfnlh;
+	ssh->cb_count = cb_count;
+	ssh->subscriptions = subscriptions;
+
+	if (recalc_rebind_subscriptions(nfnlh) < 0) {
+		free(ssh->cb);
+		ssh->cb = NULL;
+		return NULL;
+	}
+	
+	return ssh;
+}
+
+void nfnl_subsys_close(struct nfnl_subsys_handle *ssh)
+{
+	ssh->subscriptions = 0;
+	ssh->cb_count = 0;
+	if (ssh->cb) {
+		free(ssh->cb);
+		ssh->cb = NULL;
+	}
 }
 
 /**
@@ -132,8 +224,18 @@ int nfnl_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
  */
 int nfnl_close(struct nfnl_handle *nfnlh)
 {
-	free(nfnlh->cb);
-	return close(nfnlh->fd);
+	int i, ret;
+
+	for (i = 0; i < NFNL_MAX_SUBSYS; i++)
+		nfnl_subsys_close(&nfnlh->subsys[i]);
+
+	ret = close(nfnlh->fd);
+	if (ret < 0)
+		return ret;
+
+	free(nfnlh);
+
+	return 0;
 }
 
 /**
@@ -187,7 +289,7 @@ int nfnl_sendiov(const struct nfnl_handle *nfnlh, const struct iovec *iov,
  * the size of struct nlmsghdr + struct nfgenmsg
  *
  */
-void nfnl_fill_hdr(struct nfnl_handle *nfnlh,
+void nfnl_fill_hdr(struct nfnl_subsys_handle *ssh,
 		    struct nlmsghdr *nlh, unsigned int len, 
 		    u_int8_t family,
 		    u_int16_t res_id,
@@ -198,10 +300,10 @@ void nfnl_fill_hdr(struct nfnl_handle *nfnlh,
 					((void *)nlh + sizeof(*nlh));
 
 	nlh->nlmsg_len = NLMSG_LENGTH(len+sizeof(*nfg));
-	nlh->nlmsg_type = (nfnlh->subsys_id<<8)|msg_type;
+	nlh->nlmsg_type = (ssh->subsys_id<<8)|msg_type;
 	nlh->nlmsg_flags = msg_flags;
 	nlh->nlmsg_pid = 0;
-	nlh->nlmsg_seq = ++nfnlh->seq;
+	nlh->nlmsg_seq = ++ssh->nfnlh->seq;
 
 	nfg->nfgen_family = family;
 	nfg->version = NFNETLINK_V0;
@@ -693,23 +795,23 @@ struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
 	return nlh;
 }
 
-int nfnl_callback_register(struct nfnl_handle *h,
+int nfnl_callback_register(struct nfnl_subsys_handle *ssh,
 			   u_int8_t type, struct nfnl_callback *cb)
 {
-	if (type >= h->cb_count)
+	if (type >= ssh->cb_count)
 		return -EINVAL;
 
-	memcpy(&h->cb[type], cb, sizeof(*cb));
+	memcpy(&ssh->cb[type], cb, sizeof(*cb));
 
 	return 0;
 }
 
-int nfnl_callback_unregister(struct nfnl_handle *h, u_int8_t type)
+int nfnl_callback_unregister(struct nfnl_subsys_handle *ssh, u_int8_t type)
 {
-	if (type >= h->cb_count)
+	if (type >= ssh->cb_count)
 		return -EINVAL;
 
-	h->cb[type].call = NULL;
+	ssh->cb[type].call = NULL;
 
 	return 0;
 }
@@ -720,12 +822,20 @@ int nfnl_check_attributes(const struct nfnl_handle *h,
 {
 	int min_len;
 	u_int8_t type = NFNL_MSG_TYPE(nlh->nlmsg_type);
-	struct nfnl_callback *cb = &h->cb[type];
+	u_int8_t subsys_id = NFNL_SUBSYS_ID(nlh->nlmsg_type);
+	const struct nfnl_subsys_handle *ssh;
+	struct nfnl_callback *cb;
+
+	if (subsys_id > NFNL_MAX_SUBSYS)
+		return -EINVAL;
+
+	ssh = &h->subsys[subsys_id];
+ 	cb = &ssh->cb[type];
 
 #if 1
 	/* checks need to be enabled as soon as this is called from
 	 * somebody else than __nfnl_handle_msg */
-	if (type >= h->cb_count)
+	if (type >= ssh->cb_count)
 		return -EINVAL;
 
 	min_len = NLMSG_ALIGN(sizeof(struct nfgenmsg));
@@ -755,26 +865,30 @@ int nfnl_check_attributes(const struct nfnl_handle *h,
 static int __nfnl_handle_msg(struct nfnl_handle *h, struct nlmsghdr *nlh,
 			     int len)
 {
+	struct nfnl_subsys_handle *ssh;
 	u_int8_t type = NFNL_MSG_TYPE(nlh->nlmsg_type);
+	u_int8_t subsys_id = NFNL_SUBSYS_ID(nlh->nlmsg_type);
 	int err = 0;
 
-	if (NFNL_SUBSYS_ID(nlh->nlmsg_type) != h->subsys_id)
+	if (subsys_id > NFNL_MAX_SUBSYS)
 		return -1;
+
+	ssh = &h->subsys[subsys_id];
 
 	if (nlh->nlmsg_len < NLMSG_LENGTH(NLMSG_ALIGN(sizeof(struct nfgenmsg))))
 		return -1;
 
-	if (type >= h->cb_count)
+	if (type >= ssh->cb_count)
 		return -1;
 
-	if (h->cb[type].attr_count) {
-		struct nfattr *nfa[h->cb[type].attr_count];
+	if (ssh->cb[type].attr_count) {
+		struct nfattr *nfa[ssh->cb[type].attr_count];
 
 		err = nfnl_check_attributes(h, nlh, nfa);
 		if (err < 0)
 			return err;
-		if (h->cb[type].call)
-			return h->cb[type].call(nlh, nfa, h->cb[type].data);
+		if (ssh->cb[type].call)
+			return ssh->cb[type].call(nlh, nfa, ssh->cb[type].data);
 	}
 	return 0;
 }

@@ -1,6 +1,6 @@
-#AUTOMAKE_OPTIONS = no-dependencies foreign
-
-#EXTRA_DIST = $(man_MANS) acinclude.m4
+# This is _NOT_ the library release version, it's an API version.
+# Please read Chapter 6 "Library interface versions" of the libtool documentation before making any modification
+LIBVERSION=1:0:0
 
 INCLUDES = $(all_includes) -I$(top_srcdir)/include
 AM_CFLAGS=-fPIC -Wall
@@ -8,5 +8,6 @@ LIBS=
 
 lib_LTLIBRARIES = libnfnetlink.la
 
-libnfnetlink_la_LDFLAGS = -Wc,-nostartfiles
+libnfnetlink_la_LDFLAGS = -Wc,-nostartfiles	\
+			  -version-info $(LIBVERSION)
 libnfnetlink_la_SOURCES = libnfnetlink.c 
