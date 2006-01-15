@@ -16,6 +16,10 @@
  *
  * 2006-01-14 Harald Welte <laforge@netfilter.org>:
  * 	introduce nfnl_subsys_handle
+ *
+ * 2006-01-15 Pablo Neira Ayuso <pablo@netfilter.org>:
+ * 	set missing subsys_id in nfnl_subsys_open
+ * 	set missing nfnlh->local.nl_pid in nfnl_open
  */
 
 #include <stdlib.h>
@@ -152,6 +156,10 @@ struct nfnl_handle *nfnl_open(void)
 		goto err_close;
 	}
 	nfnlh->seq = time(NULL);
+	/*
+	 * nfnl_talk checks: h->nlmsg_pid != nfnlh->local.nl_pid
+	 */
+	nfnlh->local.nl_pid = getpid();
 
 	return nfnlh;
 
@@ -196,6 +204,7 @@ nfnl_subsys_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 	ssh->nfnlh = nfnlh;
 	ssh->cb_count = cb_count;
 	ssh->subscriptions = subscriptions;
+	ssh->subsys_id = subsys_id;
 
 	if (recalc_rebind_subscriptions(nfnlh) < 0) {
 		free(ssh->cb);
