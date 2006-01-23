@@ -112,6 +112,7 @@ struct nfnl_callback
 {
 	int (*call)(struct sock *nl, struct sk_buff *skb, 
 		struct nlmsghdr *nlh, struct nfattr *cda[], int *errp);
+	kernel_cap_t cap_required; /* capabilities required for this msg */
 	u_int16_t attr_count;	/* number of nfattr's */
 };
 
@@ -145,7 +146,7 @@ extern void nfnl_unlock(void);
 extern int nfnetlink_subsys_register(struct nfnetlink_subsystem *n);
 extern int nfnetlink_subsys_unregister(struct nfnetlink_subsystem *n);
 
-extern void nfattr_parse(struct nfattr *tb[], int maxattr, 
+extern int nfattr_parse(struct nfattr *tb[], int maxattr, 
 			struct nfattr *nfa, int len);
 
 #define nfattr_parse_nested(tb, max, nfa) \
@@ -153,14 +154,11 @@ extern void nfattr_parse(struct nfattr *tb[], int maxattr,
 
 #define nfattr_bad_size(tb, max, cta_min)				\
 ({	int __i, __res = 0;						\
- 	for (__i=0; __i<max; __i++) {					\
- 		if (!cta_min[__i])					\
- 			continue;					\
+ 	for (__i=0; __i<max; __i++) 					\
  		if (tb[__i] && NFA_PAYLOAD(tb[__i]) < cta_min[__i]){	\
  			__res = 1;					\
  			break;						\
  		}							\
- 	}								\
  	__res;								\
 })
 

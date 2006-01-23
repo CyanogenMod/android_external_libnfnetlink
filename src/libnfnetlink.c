@@ -725,6 +725,10 @@ int nfnl_parse_attr(struct nfattr *tb[], int max, struct nfattr *nfa, int len)
 void nfnl_build_nfa_iovec(struct iovec *iov, struct nfattr *nfa, 
 			  u_int16_t type, u_int32_t len, unsigned char *val)
 {
+        /* Set the attribut values */ 
+        nfa->nfa_len = sizeof(struct nfattr) + len;
+        nfa->nfa_type = type;
+
 	iov[0].iov_base = nfa;
 	iov[0].iov_len = sizeof(*nfa);
 	iov[1].iov_base = val;
