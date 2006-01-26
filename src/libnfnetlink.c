@@ -33,7 +33,18 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <linux/netlink.h>
+
 #include <libnfnetlink/libnfnetlink.h>
+
+#ifndef NETLINK_ADD_MEMBERSHIP
+#define NETLINK_ADD_MEMBERSHIP 1
+#endif
+
+#ifndef SOL_NETLINK
+#define SOL_NETLINK 270
+#endif
+
 
 #define nfnl_error(format, args...) \
 	fprintf(stderr, "%s: " format "\n", __FUNCTION__, ## args)
@@ -95,24 +106,22 @@ int nfnl_fd(struct nfnl_handle *h)
 
 static int recalc_rebind_subscriptions(struct nfnl_handle *nfnlh)
 {
-	int i;
-	u_int32_t new_subscriptions = 0;
+	int i, err;
+	u_int32_t new_subscriptions = nfnlh->subscriptions;
 
 	for (i = 0; i < NFNL_MAX_SUBSYS; i++)
 		new_subscriptions |= nfnlh->subsys[i].subscriptions;
 
-	if (nfnlh->subscriptions != new_subscriptions) {
-		int err;
 
-		nfnlh->local.nl_groups = new_subscriptions;
-		err = bind(nfnlh->fd, (struct sockaddr *)&nfnlh->local,
-			   sizeof(nfnlh->local));
-		if (err < 0) {
-			nfnl_error("bind(netlink): %s", strerror(errno));
-			return err;
-		}
-		nfnlh->subscriptions = new_subscriptions;
+	nfnlh->local.nl_groups = new_subscriptions;
+	err = bind(nfnlh->fd, (struct sockaddr *)&nfnlh->local,
+		   sizeof(nfnlh->local));
+	if (err < 0) {
+		nfnl_error("bind(netlink): %s", strerror(errno));
+		return err;
 	}
+
+	nfnlh->subscriptions = new_subscriptions;
 
 	return 0;
 }
@@ -156,10 +165,23 @@ struct nfnl_handle *nfnl_open(void)
 		goto err_close;
 	}
 	nfnlh->seq = time(NULL);
-	/*
-	 * nfnl_talk checks: h->nlmsg_pid != nfnlh->local.nl_pid
-	 */
-	nfnlh->local.nl_pid = getpid();
+
+	/* don't set pid here, only first socket of process has real pid !!! 
+	 * binding to pid '0' will default */
+
+	/* let us do the initial bind */
+	if (recalc_rebind_subscriptions(nfnlh) < 0)
+		goto err_close;
+
+	/* use getsockname to get the netlink pid that the kernel assigned us */
+	addr_len = sizeof(nfnlh->local);
+	err = getsockname(nfnlh->fd, (struct sockaddr *)&nfnlh->local, 
+			  &addr_len);
+	if (addr_len != sizeof(nfnlh->local)) {
+		nfnl_error("Bad address length (%u != %zd)", addr_len,
+			   sizeof(nfnlh->local));
+		goto err_close;
+	}
 
 	return nfnlh;
 
@@ -206,6 +228,8 @@ nfnl_subsys_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 	ssh->subscriptions = subscriptions;
 	ssh->subsys_id = subsys_id;
 
+	/* FIXME: reimplement this based on 
+	 * setsockopt(nfnlh->fd, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,,) */
 	if (recalc_rebind_subscriptions(nfnlh) < 0) {
 		free(ssh->cb);
 		ssh->cb = NULL;
