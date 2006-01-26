@@ -20,6 +20,10 @@
  * 2006-01-15 Pablo Neira Ayuso <pablo@netfilter.org>:
  * 	set missing subsys_id in nfnl_subsys_open
  * 	set missing nfnlh->local.nl_pid in nfnl_open
+ *
+ * 2006-01-26 Harald Welte <laforge@netfilter.org>:
+ * 	remove bogus nfnlh->local.nl_pid from nfnl_open ;)
+ * 	add 16bit attribute functions
  */
 
 #include <stdlib.h>
@@ -680,6 +684,36 @@ int nfnl_nfa_addattr_l(struct nfattr *nfa, int maxlen, int type, void *data,
 	return 0;
 }
 
+/**
+ * nfnl_nfa_addattr16 - Add u_int16_t attribute to struct nfattr 
+ *
+ * nfa: struct nfattr
+ * maxlen: maximal length of nfattr buffer
+ * type: type for new attribute
+ * data: content of new attribute
+ *
+ */
+int nfnl_nfa_addattr16(struct nfattr *nfa, int maxlen, int type, 
+		       u_int16_t data)
+{
+
+	return nfnl_nfa_addattr_l(nfa, maxlen, type, &data, sizeof(data));
+}
+
+/**
+ * nfnl_addattr16 - Add u_int16_t attribute to nlmsghdr
+ *
+ * n: netlink message header to which attribute is to be added
+ * maxlen: maximum length of netlink message header
+ * type: type of new attribute
+ * data: content of new attribute
+ *
+ */
+int nfnl_addattr16(struct nlmsghdr *n, int maxlen, int type,
+		   u_int16_t data)
+{
+	return nfnl_addattr_l(n, maxlen, type, &data, sizeof(data));
+}
 
 /**
  * nfnl_nfa_addattr32 - Add u_int32_t attribute to struct nfattr 

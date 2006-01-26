@@ -117,8 +117,10 @@ extern struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
 
 /* nfnl attribute handling functions */
 extern int nfnl_addattr_l(struct nlmsghdr *, int, int, void *, int);
+extern int nfnl_addattr16(struct nlmsghdr *, int, int, u_int16_t);
 extern int nfnl_addattr32(struct nlmsghdr *, int, int, u_int32_t);
 extern int nfnl_nfa_addattr_l(struct nfattr *, int, int, void *, int);
+extern int nfnl_nfa_addattr16(struct nfattr *, int, int, u_int16_t);
 extern int nfnl_nfa_addattr32(struct nfattr *, int, int, u_int32_t);
 extern int nfnl_parse_attr(struct nfattr **, int, struct nfattr *, int);
 #define nfnl_parse_nested(tb, max, nfa) \
