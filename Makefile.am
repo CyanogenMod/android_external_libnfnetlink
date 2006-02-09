@@ -7,6 +7,9 @@ DIST_SUBDIRS = src include
 
 man_MANS = #nfnetlink.3
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libnfnetlink.pc
+
 $(OBJECTS): libtool
 libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status --recheck
