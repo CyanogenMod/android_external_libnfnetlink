@@ -861,6 +861,11 @@ struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
 	remain_len = (len - ((unsigned char *)h->last_nlhdr - buf));
 	nlh = NLMSG_NEXT(h->last_nlhdr, remain_len);
 
+	if (!NLMSG_OK(nlh, remain_len)) {
+		h->last_nlhdr = NULL;
+		return NULL;
+	}
+
 	h->last_nlhdr = nlh;
 
 	return nlh;
