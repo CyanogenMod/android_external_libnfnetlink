@@ -914,7 +914,7 @@ int nfnl_check_attributes(const struct nfnl_handle *h,
 	if (type >= ssh->cb_count)
 		return -EINVAL;
 
-	min_len = NLMSG_ALIGN(sizeof(struct nfgenmsg));
+	min_len = NLMSG_SPACE(sizeof(struct nfgenmsg));
 	if (nlh->nlmsg_len < min_len)
 		return -EINVAL;
 #endif
