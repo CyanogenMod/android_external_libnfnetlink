@@ -927,8 +927,13 @@ int nfnl_check_attributes(const struct nfnl_handle *h,
 		while (NFA_OK(attr, attrlen)) {
 			unsigned int flavor = NFA_TYPE(attr);
 			if (flavor) {
-				if (flavor > cb->attr_count)
-					return -EINVAL;
+				if (flavor > cb->attr_count) {
+					/* we have received an attribute from
+					 * the kernel which we don't understand
+					 * yet. We have to silently ignore this
+					 * for the sake of future compatibility */
+					continue;
+				}
 				nfa[flavor - 1] = attr;
 			}
 			attr = NFA_NEXT(attr, attrlen);
