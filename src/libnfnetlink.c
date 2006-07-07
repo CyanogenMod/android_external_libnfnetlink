@@ -37,6 +37,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <linux/types.h>
 #include <linux/netlink.h>
 
 #include <libnfnetlink/libnfnetlink.h>
