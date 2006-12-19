@@ -98,6 +98,42 @@ extern struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
 					  const unsigned char *buf,
 					  size_t len);
 
+/* callback verdict */
+enum {
+	NFNL_CB_FAILURE = -1,   /* failure */
+	NFNL_CB_STOP = 0,       /* stop the query */
+	NFNL_CB_CONTINUE = 1,   /* keep iterating */
+};
+
+/* join a certain netlink multicast group */
+extern int nfnl_join(const struct nfnl_handle *nfnlh, unsigned int group);
+
+/* process a netlink message */
+extern int nfnl_process(struct nfnl_handle *h,
+			const unsigned char *buf,
+			size_t len);
+
+/* iterator API */
+
+extern struct nfnl_iterator *
+nfnl_iterator_create(const struct nfnl_handle *h,
+		     const char *buf,
+		     size_t len);
+
+extern void nfnl_iterator_destroy(struct nfnl_iterator *it);
+
+extern int nfnl_iterator_process(struct nfnl_handle *h,
+				 struct nfnl_iterator *it);
+
+extern int nfnl_iterator_next(const struct nfnl_handle *h,
+			      struct nfnl_iterator *it);
+
+/* replacement for nfnl_listen */
+extern int nfnl_catch(struct nfnl_handle *h);
+
+/* replacement for nfnl_talk */
+extern int nfnl_query(struct nfnl_handle *h, struct nlmsghdr *nlh);
+
 #define nfnl_attr_present(tb, attr)			\
 	(tb[attr-1])
 
@@ -116,10 +152,10 @@ extern struct nlmsghdr *nfnl_get_msg_next(struct nfnl_handle *h,
 	 })
 
 /* nfnl attribute handling functions */
-extern int nfnl_addattr_l(struct nlmsghdr *, int, int, void *, int);
+extern int nfnl_addattr_l(struct nlmsghdr *, int, int, const void *, int);
 extern int nfnl_addattr16(struct nlmsghdr *, int, int, u_int16_t);
 extern int nfnl_addattr32(struct nlmsghdr *, int, int, u_int32_t);
-extern int nfnl_nfa_addattr_l(struct nfattr *, int, int, void *, int);
+extern int nfnl_nfa_addattr_l(struct nfattr *, int, int, const void *, int);
 extern int nfnl_nfa_addattr16(struct nfattr *, int, int, u_int16_t);
 extern int nfnl_nfa_addattr32(struct nfattr *, int, int, u_int32_t);
 extern int nfnl_parse_attr(struct nfattr **, int, struct nfattr *, int);

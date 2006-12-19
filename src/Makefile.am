@@ -1,6 +1,4 @@
-# This is _NOT_ the library release version, it's an API version.
-# Please read Chapter 6 "Library interface versions" of the libtool documentation before making any modification
-LIBVERSION=1:0:0
+include $(top_srcdir)/Make_global.am
 
 INCLUDES = $(all_includes) -I$(top_srcdir)/include
 AM_CFLAGS=-fPIC -Wall

@@ -1,3 +1,5 @@
+include $(top_srcdir)/Make_global.am
+
 AUTOMAKE_OPTIONS = foreign dist-bzip2 1.6
 
 EXTRA_DIST = $(man_MANS) debian
