@@ -244,7 +244,7 @@ nfnl_subsys_open(struct nfnl_handle *nfnlh, u_int8_t subsys_id,
 		return NULL;
 	}
 
-	ssh->cb = malloc(sizeof(*(ssh->cb)) * cb_count);
+	ssh->cb = calloc(cb_count, sizeof(*(ssh->cb)));
 	if (!ssh->cb)
 		return NULL;
 
