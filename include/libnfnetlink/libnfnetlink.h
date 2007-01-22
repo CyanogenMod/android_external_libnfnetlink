@@ -15,7 +15,6 @@
 #define aligned_u64 unsigned long long __attribute__((aligned(8)))
 #endif
 
-#include <linux/types.h>
 #include <sys/socket.h>	/* for sa_family_t */
 #include <linux/netlink.h>
 #include <libnfnetlink/linux_nfnetlink.h>
