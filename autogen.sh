@@ -31,7 +31,7 @@ run ()
     fi
 }
 
-[ "x$1" == "xdistrib" ] && include
+[ "x$1" = "xdistrib" ] && include
 run aclocal
 #run autoheader
 run libtoolize -f
