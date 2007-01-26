@@ -175,6 +175,25 @@ extern unsigned int nfnl_rcvbufsiz(struct nfnl_handle *h, unsigned int size);
 
 extern void nfnl_dump_packet(struct nlmsghdr *, int, char *);
 
+/*
+ * index to interface name API
+ */
+
+#ifndef IFNAMSIZ
+#define IFNAMSIZ 16
+#endif
+
+struct nlif_handle;
+
+struct nlif_handle *nlif_open(void);
+void nlif_close(struct nlif_handle *orig);
+int nlif_fd(struct nlif_handle *nlif_handle);
+int nlif_query(struct nlif_handle *nlif_handle);
+int nlif_catch(struct nlif_handle *nlif_handle);
+int nlif_index2name(struct nlif_handle *nlif_handle, 
+		    unsigned int index, 
+		    char *name);
+
 /* Pablo: What is the equivalence of be64_to_cpu in userspace?
  * 
  * Harald: Good question.  I don't think there's a standard way [yet?], 

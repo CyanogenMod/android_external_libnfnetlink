@@ -19,6 +19,7 @@
 
 #include <linux/netdevice.h>
 
+#include <libnfnetlink/libnfnetlink.h>
 #include "rtnl.h"
 
 #define iftb_log(x, ...)
@@ -34,27 +35,12 @@ struct ifindex_map {
 	char		name[16];
 };
 
-static struct ifindex_map *ifindex_map[16];
-
-/* iftable_dump - Dump the interface table to a given file stream
- * @outfd:	file stream to which table should be dumped
- */
-int iftable_dump(FILE *outfd)
-{
-	int i;
-
-	for (i = 0; i < 16; i++) {
-		struct ifindex_map *im;
-		for (im = ifindex_map[i]; im; im = im->next) {
-			fprintf(outfd, "%u %s", im->index, im->name);
-			if (!(im->flags & IFF_UP))
-				fputs(" DOWN", outfd);
-			fputc('\n', outfd);
-		}
-	}
-	fflush(outfd);
-	return 0;
-}
+struct nlif_handle {
+	struct ifindex_map *ifindex_map[16];
+	struct rtnl_handle *rtnl_handle;
+	struct rtnl_handler *ifadd_handler;
+	struct rtnl_handler *ifdel_handler;
+};
 
 /* iftable_add - Add/Update an entry to/in the interface table
  * @n:		netlink message header of a RTM_NEWLINK message
@@ -69,6 +55,7 @@ int iftable_add(struct nlmsghdr *n, void *arg)
 	struct ifinfomsg *ifi_msg = NLMSG_DATA(n);
 	struct ifindex_map *im, **imp;
 	struct rtattr *cb[IFLA_MAX+1];
+	struct nlif_handle *nlif_handle = (struct nlif_handle *)arg;
 
 	if (n->nlmsg_type != RTM_NEWLINK)
 		return -1;
@@ -87,7 +74,8 @@ int iftable_add(struct nlmsghdr *n, void *arg)
 	}
 
 	hash = ifi_msg->ifi_index&0xF;
-	for (imp = &ifindex_map[hash]; (im=*imp)!=NULL; imp = &im->next) {
+	for (imp = &((nlif_handle->ifindex_map)[hash]); 
+	     (im=*imp)!=NULL; imp = &im->next) {
 		if (im->index == ifi_msg->ifi_index) {
 			iftb_log(LOG_DEBUG,
 				 "updating iftable (ifindex=%u)", im->index);
@@ -136,7 +124,9 @@ int iftable_del(struct nlmsghdr *n, void *arg)
 {
 	struct ifinfomsg *ifi_msg = NLMSG_DATA(n);
 	struct rtattr *cb[IFLA_MAX+1];
-	struct ifindex_map *im;
+	struct nlif_handle *nlif_handle = (struct nlif_handle *)arg;
+	struct ifindex_map *im, *ima, **imp;
+	unsigned int hash;
 
 	if (n->nlmsg_type != RTM_DELLINK) {
 		iftb_log(LOG_ERROR,
@@ -153,27 +143,53 @@ int iftable_del(struct nlmsghdr *n, void *arg)
 	memset(&cb, 0, sizeof(cb));
 	rtnl_parse_rtattr(cb, IFLA_MAX, IFLA_RTA(ifi_msg), IFLA_PAYLOAD(n));
 
-	/* FIXME */
+	/* \todo Really suppress entry */
+	hash = ifi_msg->ifi_index&0xF;
+	for (ima = NULL, imp = &((nlif_handle->ifindex_map)[hash]); 
+	     (im=*imp)!=NULL; imp = &im->next, ima=im) {
+		if (im->index == ifi_msg->ifi_index) {
+			iftb_log(LOG_DEBUG,
+				 "deleting iftable (ifindex=%u)", im->index);
+			break;
+		}
+	}
+
+	if (!im)
+		return 0;
+
+	if (ima)
+		ima->next = *imp;
+	else
+		(nlif_handle->ifindex_map)[hash] = *imp;
+	free(im);
 
 	return 1;
 }
-	
-/* ifindex_2name - get the name for an ifindex
- * @index:	ifindex to be resolved
+
+/** Get the name for an ifindex
  *
- * Return value: character string containing name of interface
+ * \param nlif_handle A pointer to a ::nlif_handle created
+ * \param index ifindex to be resolved
+ * \param name interface name, pass a buffer of IFNAMSIZ size
+ * \return -1 on error, 1 on success 
  */
-char *ifindex_2name(unsigned int index)
+int nlif_index2name(struct nlif_handle *nlif_handle, 
+		    unsigned int index,
+		    char *name)
 {
 	struct ifindex_map *im;
 
-	if (index == 0)
-		return "*";
-	for (im = ifindex_map[index&0xF]; im; im = im->next)
-		if (im->index == index)
-			return im->name;
+	if (index == 0) {
+		strcpy(name, "*");
+		return 1;
+	}
+	for (im = (nlif_handle->ifindex_map)[index&0xF]; im; im = im->next)
+		if (im->index == index) {
+			strcpy(name, im->name);
+			return 1;
+		}
 
-	return NULL;
+	return -1;
 }
 
 /* iftable_up - Determine whether a given interface is UP
@@ -181,11 +197,11 @@ char *ifindex_2name(unsigned int index)
  *
  * Return value: -1 if interface unknown, 1 if interface up, 0 if not.
  */
-int  iftable_up(unsigned int index)
+int iftable_up(struct nlif_handle *nlif_handle, unsigned int index)
 {
 	struct ifindex_map *im;
 
-	for (im = ifindex_map[index&0xF]; im; im = im->next) {
+	for (im = nlif_handle->ifindex_map[index&0xF]; im; im = im->next) {
 		if (im->index == index) {
 			if (im->flags & IFF_UP)
 				return 1;
@@ -196,34 +212,49 @@ int  iftable_up(unsigned int index)
 	return -1;
 }
 
-static struct rtnl_handler handlers[] = {
-	{ .nlmsg_type = RTM_NEWLINK, .handlefn = &iftable_add },
-	{ .nlmsg_type = RTM_DELLINK, .handlefn = &iftable_del },
-};
-
-static int init_or_fini(int fini)
+static struct nlif_handle *init_or_fini(struct nlif_handle *orig)
 {
+	struct nlif_handle *nlif_handle;
 	int ret = 0;
 
-	if (fini)
+	if (orig) {
+		nlif_handle = orig;
 		goto cleanup;
+	}
 
-	if (rtnl_handler_register(&handlers[0]) < 0) {
+		
+	nlif_handle = calloc(1,  sizeof(struct nlif_handle));
+	if (!nlif_handle)
+		goto cleanup_none;
+
+	nlif_handle->ifadd_handler = calloc(1, sizeof(struct rtnl_handler));
+	nlif_handle->ifadd_handler->nlmsg_type = RTM_NEWLINK;
+	nlif_handle->ifadd_handler->handlefn = &iftable_add;
+	nlif_handle->ifadd_handler->arg = nlif_handle;
+	nlif_handle->ifdel_handler = calloc(1, sizeof(struct rtnl_handler));
+	nlif_handle->ifdel_handler->nlmsg_type = RTM_DELLINK;
+	nlif_handle->ifdel_handler->handlefn = &iftable_del;
+	nlif_handle->ifdel_handler->arg = nlif_handle;
+
+	nlif_handle->rtnl_handle = rtnl_init();
+
+	if (! nlif_handle->rtnl_handle)
+		goto cleanup_none;
+
+	if (rtnl_handler_register(nlif_handle->rtnl_handle, 
+				  nlif_handle->ifadd_handler) < 0) {
 		ret = -1;
 		goto cleanup_none;
 	}
 
-	if (rtnl_handler_register(&handlers[1]) < 0) {
+	if (rtnl_handler_register(nlif_handle->rtnl_handle,
+				  nlif_handle->ifdel_handler) < 0) {
 		ret = -1;
 		goto cleanup_0;
 	}
 
-	if (rtnl_dump_type(RTM_GETLINK) < 0) {
-		ret = -1;
-		goto cleanup_1;
-	}
 
-	return 0;
+	return nlif_handle;
 
 #if 0
 	if (rtnl_wilddump_requet(rtnl_fd, AF_UNSPEC, RTM_GETLINK) < 0) {
@@ -234,28 +265,77 @@ static int init_or_fini(int fini)
 #endif
 
 cleanup:
-
-cleanup_1:
-	rtnl_handler_unregister(&handlers[1]);
+	rtnl_handler_unregister(nlif_handle->rtnl_handle,
+				nlif_handle->ifadd_handler);
+	free(nlif_handle->ifadd_handler);
 cleanup_0:
-	rtnl_handler_unregister(&handlers[0]);
+	rtnl_handler_unregister(nlif_handle->rtnl_handle,
+				nlif_handle->ifdel_handler);
+	free(nlif_handle->ifdel_handler);
+	rtnl_fini(nlif_handle->rtnl_handle);
+	free(nlif_handle);
+
 cleanup_none:
-	return ret;
+	return nlif_handle;
 }
 
-/* iftable_init - Initialize interface table
+/** Initialize interface table
+ *
+ * Initialize rtnl interface and interface table
+ * Call this before any nlif_* function
+ *
+ * \return file descriptor to netlink socket
  */
-int iftable_init(void)
+struct nlif_handle *nlif_open(void)
 {
 	iftb_log(LOG_DEBUG, "%s", __FUNCTION__);
-	return init_or_fini(0);
+	return init_or_fini(NULL);
 }
 
-/* iftable_fini - Destructor of interface table
+/** Destructor of interface table
+ *
+ * \param nlif_handle A pointer to a ::nlif_handle created 
+ * via nlif_open()
  */
-void iftable_fini(void)
+void nlif_close(struct nlif_handle *nlif_handle)
 {
-	init_or_fini(1);
+	init_or_fini(nlif_handle);
 }
 
+/** Receive message from netlink and update interface table
+ *
+ * \param nlif_handle A pointer to a ::nlif_handle created
+ * \return 0 if OK
+ */
+int nlif_catch(struct nlif_handle *nlif_handle)
+{
+	if (nlif_handle && nlif_handle->rtnl_handle)
+		return rtnl_receive(nlif_handle->rtnl_handle);
+	else
+		return -1;
+}
 
+/** 
+ * nlif_query - request a dump of interfaces available in the system
+ * @h: pointer to a valid nlif_handler
+ */
+int nlif_query(struct nlif_handle *h)
+{
+	if (rtnl_dump_type(h->rtnl_handle, RTM_GETLINK) < 0)
+		return -1;
+
+	return nlif_catch(h);
+}
+
+/** Returns socket descriptor for the netlink socket
+ *
+ * \param nlif_handle A pointer to a ::nlif_handle created
+ * \return The fd or -1 if there's an error
+ */
+int nlif_fd(struct nlif_handle *nlif_handle)
+{
+	if (nlif_handle && nlif_handle->rtnl_handle)
+		return nlif_handle->rtnl_handle->rtnl_fd;
+	else
+		return -1;
+}

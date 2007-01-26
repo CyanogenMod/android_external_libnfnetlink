@@ -12,17 +12,25 @@ struct rtnl_handler {
 	void		*arg;
 };
 
+struct rtnl_handle {
+	int rtnl_fd;
+	int rtnl_seq;
+	int rtnl_dump;
+	struct sockaddr_nl rtnl_local;
+	struct rtnl_handler *handlers;
+};
 
 /* api for handler plugins */
-int rtnl_handler_register(struct rtnl_handler *hdlr);
-int rtnl_handler_unregister(struct rtnl_handler *hdlr);
+int rtnl_handler_register(struct rtnl_handle *rtnl_handle, 
+			  struct rtnl_handler *hdlr);
+int rtnl_handler_unregister(struct rtnl_handle *rtnl_handle,
+			    struct rtnl_handler *hdlr);
 int rtnl_parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len);
-int rtnl_dump_type(unsigned int type);
+int rtnl_dump_type(struct rtnl_handle *rtnl_handle, unsigned int type);
 
 /* api for core program */
-int rtnl_init(void);
-void rtnl_fini(void);
-int rtnl_receive();
-  
+struct rtnl_handle *rtnl_init(void);
+void rtnl_fini(struct rtnl_handle *rtnl_handle);
+int rtnl_receive(struct rtnl_handle *rtnl_handle);
 
 #endif

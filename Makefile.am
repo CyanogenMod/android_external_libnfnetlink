@@ -4,8 +4,8 @@ AUTOMAKE_OPTIONS = foreign dist-bzip2 1.6
 
 EXTRA_DIST = $(man_MANS) debian
 
-SUBDIRS = src include
-DIST_SUBDIRS = src include
+SUBDIRS = src include utils
+DIST_SUBDIRS = src include utils
 
 man_MANS = #nfnetlink.3
 
