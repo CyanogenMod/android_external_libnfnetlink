@@ -46,8 +46,7 @@ static int call_handler(struct rtnl_handle *rtnl_handle,
 	struct rtnl_handler *h = find_handler(rtnl_handle, type);
 
 	if (!h) {
-		rtnl_log(LOG_DEBUG, "no registered handler for type %u",
-			 type);
+		rtnl_log(LOG_DEBUG, "no registered handler for type %u", type);
 		return 0;
 	}
 
@@ -109,24 +108,24 @@ int rtnl_parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
  */
 int rtnl_dump_type(struct rtnl_handle *rtnl_handle, unsigned int type)
 {
-        struct {
-                struct nlmsghdr nlh;
-                struct rtgenmsg g;
-        } req;
-        struct sockaddr_nl nladdr;
+	struct {
+		struct nlmsghdr nlh;
+		struct rtgenmsg g;
+	} req;
+	struct sockaddr_nl nladdr;
 
-        memset(&nladdr, 0, sizeof(nladdr));
+	memset(&nladdr, 0, sizeof(nladdr));
 	memset(&req, 0, sizeof(req));
-        nladdr.nl_family = AF_NETLINK;
+	nladdr.nl_family = AF_NETLINK;
 
-        req.nlh.nlmsg_len = sizeof(req);
-        req.nlh.nlmsg_type = type;
-        req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
-        req.nlh.nlmsg_pid = 0;
-        req.nlh.nlmsg_seq = rtnl_handle->rtnl_dump = ++(rtnl_handle->rtnl_seq);
-        req.g.rtgen_family = AF_INET;
+	req.nlh.nlmsg_len = sizeof(req);
+ 	req.nlh.nlmsg_type = type;
+	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
+	req.nlh.nlmsg_pid = 0;
+	req.nlh.nlmsg_seq = rtnl_handle->rtnl_dump = ++(rtnl_handle->rtnl_seq);
+	req.g.rtgen_family = AF_INET;
 
-        return sendto(rtnl_handle->rtnl_fd, (void*)&req, sizeof(req), 0, 
+	return sendto(rtnl_handle->rtnl_fd, (void*)&req, sizeof(req), 0, 
 		      (struct sockaddr*)&nladdr, sizeof(nladdr));
 }
 
@@ -192,67 +191,64 @@ int rtnl_receive(struct rtnl_handle *rtnl_handle)
 	return 1;
 }
 
-/* rtnl_init - constructor of rtnetlink module */
-struct rtnl_handle *rtnl_init(void)
+/* rtnl_open - constructor of rtnetlink module */
+struct rtnl_handle *rtnl_open(void)
 {
-	unsigned int addr_len;
-	struct rtnl_handle *rtnl_handle = calloc(1, sizeof(struct rtnl_handle));
+	size_t addrlen;
+	struct rtnl_handle *h;
 
-	if (! rtnl_handle)
+	h = calloc(1, sizeof(struct rtnl_handle));
+	if (!h)
 		return NULL;
 
-	rtnl_handle->rtnl_seq = 0;
-	rtnl_handle->handlers = NULL;
+	addrlen = sizeof(h->rtnl_local);
 
-	rtnl_handle->rtnl_local.nl_pid = getpid();
-	rtnl_handle->rtnl_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-	if (rtnl_handle->rtnl_fd < 0) {
+	h->rtnl_local.nl_pid = getpid();
+	h->rtnl_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	if (h->rtnl_fd < 0) {
 		rtnl_log(LOG_ERROR, "unable to create rtnetlink socket");
-		free(rtnl_handle);
-		return NULL;
+		goto err;
 	}
 
-	memset(&(rtnl_handle->rtnl_local), 0, sizeof(rtnl_handle->rtnl_local));
-	rtnl_handle->rtnl_local.nl_family = AF_NETLINK;
-	rtnl_handle->rtnl_local.nl_groups =
-			RTMGRP_IPV4_ROUTE|RTMGRP_IPV4_IFADDR|RTMGRP_LINK;
-	if (bind(rtnl_handle->rtnl_fd, 
-		 (struct sockaddr *)&(rtnl_handle->rtnl_local),
-		 sizeof(rtnl_handle->rtnl_local)) < 0) {
+	memset(&h->rtnl_local, 0, sizeof(h->rtnl_local));
+	h->rtnl_local.nl_family = AF_NETLINK;
+	h->rtnl_local.nl_groups =
+		RTMGRP_IPV4_ROUTE|RTMGRP_IPV4_IFADDR|RTMGRP_LINK;
+	if (bind(h->rtnl_fd, (struct sockaddr *) &h->rtnl_local, addrlen) < 0) {
 		rtnl_log(LOG_ERROR, "unable to bind rtnetlink socket");
-		free(rtnl_handle);
-		return NULL;
+		goto err_close;
 	}
 
-	addr_len = sizeof(rtnl_handle->rtnl_local);
-	if (getsockname(rtnl_handle->rtnl_fd,
-			(struct sockaddr *)&(rtnl_handle->rtnl_local), 
-			&addr_len) < 0) {
+	if (getsockname(h->rtnl_fd, 
+			(struct sockaddr *) &h->rtnl_local, 
+			&addrlen) < 0) {
 		rtnl_log(LOG_ERROR, "cannot gescockname(rtnl_socket)");
-		free(rtnl_handle);
-		return NULL;
+		goto err_close;
 	}
 
-	if (addr_len != sizeof(rtnl_handle->rtnl_local)) {
+	if (addrlen != sizeof(h->rtnl_local)) {
 		rtnl_log(LOG_ERROR, "invalid address size %u", addr_len);
-		free(rtnl_handle);
-		return NULL;
+		goto err_close;
 	}
 
-	if (rtnl_handle->rtnl_local.nl_family != AF_NETLINK) {
-		rtnl_log(LOG_ERROR, "invalid AF %u", 
-			 rtnl_handle->rtnl_local.nl_family);
-		free(rtnl_handle);
-		return NULL;
+	if (h->rtnl_local.nl_family != AF_NETLINK) {
+		rtnl_log(LOG_ERROR, "invalid AF %u", h->rtnl_local.nl_family);
+		goto err_close;
 	}
 
-	rtnl_handle->rtnl_seq = time(NULL);
+	h->rtnl_seq = time(NULL);
 
-	return rtnl_handle;
+	return h;
+
+err_close:
+	close(h->rtnl_fd);
+err:
+	free(h);
+	return NULL;
 }
 
-/* rtnl_fini - destructor of rtnetlink module */
-void rtnl_fini(struct rtnl_handle *rtnl_handle)
+/* rtnl_close - destructor of rtnetlink module */
+void rtnl_close(struct rtnl_handle *rtnl_handle)
 {
 	close(rtnl_handle->rtnl_fd);
 	free(rtnl_handle);

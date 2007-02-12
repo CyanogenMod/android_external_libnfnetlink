@@ -13,9 +13,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
-
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <errno.h>
+#include <assert.h>
 
 #include <linux/netdevice.h>
 
@@ -38,8 +39,8 @@ struct ifindex_map {
 struct nlif_handle {
 	struct ifindex_map *ifindex_map[16];
 	struct rtnl_handle *rtnl_handle;
-	struct rtnl_handler *ifadd_handler;
-	struct rtnl_handler *ifdel_handler;
+	struct rtnl_handler ifadd_handler;
+	struct rtnl_handler ifdel_handler;
 };
 
 /* iftable_add - Add/Update an entry to/in the interface table
@@ -49,7 +50,7 @@ struct nlif_handle {
  * This function adds/updates an entry in the intrface table.
  * Returns -1 on error, 1 on success.
  */
-int iftable_add(struct nlmsghdr *n, void *arg)
+static int iftable_add(struct nlmsghdr *n, void *arg)
 {
 	unsigned int hash;
 	struct ifinfomsg *ifi_msg = NLMSG_DATA(n);
@@ -120,7 +121,7 @@ int iftable_add(struct nlmsghdr *n, void *arg)
  * Delete an entry from the interface table.  
  * Returns -1 on error, 0 if no matching entry was found or 1 on success.
  */
-int iftable_del(struct nlmsghdr *n, void *arg)
+static int iftable_del(struct nlmsghdr *n, void *arg)
 {
 	struct ifinfomsg *ifi_msg = NLMSG_DATA(n);
 	struct rtattr *cb[IFLA_MAX+1];
@@ -179,6 +180,9 @@ int nlif_index2name(struct nlif_handle *nlif_handle,
 {
 	struct ifindex_map *im;
 
+	assert(nlif_handle != NULL);
+	assert(name != NULL);
+
 	if (index == 0) {
 		strcpy(name, "*");
 		return 1;
@@ -189,15 +193,11 @@ int nlif_index2name(struct nlif_handle *nlif_handle,
 			return 1;
 		}
 
+	errno = ENOENT;
 	return -1;
 }
 
-/* iftable_up - Determine whether a given interface is UP
- * @index:	ifindex of interface
- *
- * Return value: -1 if interface unknown, 1 if interface up, 0 if not.
- */
-int iftable_up(struct nlif_handle *nlif_handle, unsigned int index)
+static int iftable_up(struct nlif_handle *nlif_handle, unsigned int index)
 {
 	struct ifindex_map *im;
 
@@ -212,73 +212,6 @@ int iftable_up(struct nlif_handle *nlif_handle, unsigned int index)
 	return -1;
 }
 
-static struct nlif_handle *init_or_fini(struct nlif_handle *orig)
-{
-	struct nlif_handle *nlif_handle;
-	int ret = 0;
-
-	if (orig) {
-		nlif_handle = orig;
-		goto cleanup;
-	}
-
-		
-	nlif_handle = calloc(1,  sizeof(struct nlif_handle));
-	if (!nlif_handle)
-		goto cleanup_none;
-
-	nlif_handle->ifadd_handler = calloc(1, sizeof(struct rtnl_handler));
-	nlif_handle->ifadd_handler->nlmsg_type = RTM_NEWLINK;
-	nlif_handle->ifadd_handler->handlefn = &iftable_add;
-	nlif_handle->ifadd_handler->arg = nlif_handle;
-	nlif_handle->ifdel_handler = calloc(1, sizeof(struct rtnl_handler));
-	nlif_handle->ifdel_handler->nlmsg_type = RTM_DELLINK;
-	nlif_handle->ifdel_handler->handlefn = &iftable_del;
-	nlif_handle->ifdel_handler->arg = nlif_handle;
-
-	nlif_handle->rtnl_handle = rtnl_init();
-
-	if (! nlif_handle->rtnl_handle)
-		goto cleanup_none;
-
-	if (rtnl_handler_register(nlif_handle->rtnl_handle, 
-				  nlif_handle->ifadd_handler) < 0) {
-		ret = -1;
-		goto cleanup_none;
-	}
-
-	if (rtnl_handler_register(nlif_handle->rtnl_handle,
-				  nlif_handle->ifdel_handler) < 0) {
-		ret = -1;
-		goto cleanup_0;
-	}
-
-
-	return nlif_handle;
-
-#if 0
-	if (rtnl_wilddump_requet(rtnl_fd, AF_UNSPEC, RTM_GETLINK) < 0) {
-		iftb_log(LOG_ERROR, "unable to send dump request");
-		return -1;
-	}
-
-#endif
-
-cleanup:
-	rtnl_handler_unregister(nlif_handle->rtnl_handle,
-				nlif_handle->ifadd_handler);
-	free(nlif_handle->ifadd_handler);
-cleanup_0:
-	rtnl_handler_unregister(nlif_handle->rtnl_handle,
-				nlif_handle->ifdel_handler);
-	free(nlif_handle->ifdel_handler);
-	rtnl_fini(nlif_handle->rtnl_handle);
-	free(nlif_handle);
-
-cleanup_none:
-	return nlif_handle;
-}
-
 /** Initialize interface table
  *
  * Initialize rtnl interface and interface table
@@ -288,8 +221,38 @@ cleanup_none:
  */
 struct nlif_handle *nlif_open(void)
 {
-	iftb_log(LOG_DEBUG, "%s", __FUNCTION__);
-	return init_or_fini(NULL);
+	struct nlif_handle *h;
+
+	h = calloc(1,  sizeof(struct nlif_handle));
+	if (h == NULL)
+		goto err;
+
+	h->ifadd_handler.nlmsg_type = RTM_NEWLINK;
+	h->ifadd_handler.handlefn = iftable_add;
+	h->ifadd_handler.arg = h;
+	h->ifdel_handler.nlmsg_type = RTM_DELLINK;
+	h->ifdel_handler.handlefn = iftable_del;
+	h->ifdel_handler.arg = h;
+
+	h->rtnl_handle = rtnl_open();
+	if (h->rtnl_handle == NULL)
+		goto err;
+
+	if (rtnl_handler_register(h->rtnl_handle, &h->ifadd_handler) < 0)
+		goto err_close;
+
+	if (rtnl_handler_register(h->rtnl_handle, &h->ifdel_handler) < 0)
+		goto err_unregister;
+
+	return h;
+
+err_unregister:
+	rtnl_handler_unregister(h->rtnl_handle, &h->ifdel_handler);
+err_close:
+	rtnl_close(h->rtnl_handle);
+	free(h);
+err:
+	return NULL;
 }
 
 /** Destructor of interface table
@@ -297,9 +260,15 @@ struct nlif_handle *nlif_open(void)
  * \param nlif_handle A pointer to a ::nlif_handle created 
  * via nlif_open()
  */
-void nlif_close(struct nlif_handle *nlif_handle)
+void nlif_close(struct nlif_handle *h)
 {
-	init_or_fini(nlif_handle);
+	assert(h != NULL);
+
+	rtnl_handler_unregister(h->rtnl_handle, &h->ifadd_handler);
+	rtnl_handler_unregister(h->rtnl_handle, &h->ifdel_handler);
+	rtnl_close(h->rtnl_handle);
+	free(h);
+	h = NULL; /* bugtrap */
 }
 
 /** Receive message from netlink and update interface table
@@ -309,10 +278,12 @@ void nlif_close(struct nlif_handle *nlif_handle)
  */
 int nlif_catch(struct nlif_handle *nlif_handle)
 {
-	if (nlif_handle && nlif_handle->rtnl_handle)
+	assert(nlif_handle != NULL);
+
+	if (nlif_handle->rtnl_handle)
 		return rtnl_receive(nlif_handle->rtnl_handle);
-	else
-		return -1;
+
+	return -1;
 }
 
 /** 
@@ -321,6 +292,8 @@ int nlif_catch(struct nlif_handle *nlif_handle)
  */
 int nlif_query(struct nlif_handle *h)
 {
+	assert(h != NULL);
+
 	if (rtnl_dump_type(h->rtnl_handle, RTM_GETLINK) < 0)
 		return -1;
 
@@ -334,8 +307,10 @@ int nlif_query(struct nlif_handle *h)
  */
 int nlif_fd(struct nlif_handle *nlif_handle)
 {
-	if (nlif_handle && nlif_handle->rtnl_handle)
+	assert(nlif_handle != NULL);
+
+	if (nlif_handle->rtnl_handle)
 		return nlif_handle->rtnl_handle->rtnl_fd;
-	else
-		return -1;
+
+	return -1;
 }

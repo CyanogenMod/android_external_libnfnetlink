@@ -29,8 +29,8 @@ int rtnl_parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 int rtnl_dump_type(struct rtnl_handle *rtnl_handle, unsigned int type);
 
 /* api for core program */
-struct rtnl_handle *rtnl_init(void);
-void rtnl_fini(struct rtnl_handle *rtnl_handle);
+struct rtnl_handle *rtnl_open(void);
+void rtnl_close(struct rtnl_handle *rtnl_handle);
 int rtnl_receive(struct rtnl_handle *rtnl_handle);
 
 #endif

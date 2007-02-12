@@ -1,6 +1,5 @@
 include $(top_srcdir)/Make_global.am
 
-INCLUDES = $(all_includes) -I$(top_srcdir)/include
 AM_CFLAGS=-fPIC -Wall
 LIBS=
 
