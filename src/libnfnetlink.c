@@ -43,7 +43,7 @@
 #include <time.h>
 #include <netinet/in.h>
 #include <assert.h>
-#include <sys/types.h>
+#include <linux/types.h>
 #include <sys/socket.h>
 
 #include <linux/netlink.h>
