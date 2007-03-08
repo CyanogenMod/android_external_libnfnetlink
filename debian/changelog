@@ -1,3 +1,9 @@
+libnfnetlink (0.0.25-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Harald Welte <laforge@netfilter.org>  Tue,  6 Mar 2007 11:07:08 +0100
+
 libnfnetlink (0.0.14) unstable; urgency=low
 
   * new upstream release
