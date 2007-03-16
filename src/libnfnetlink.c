@@ -45,6 +45,7 @@
 #include <assert.h>
 #include <linux/types.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 
 #include <linux/netlink.h>
 
