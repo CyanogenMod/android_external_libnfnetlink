@@ -163,7 +163,7 @@ extern int nfnl_parse_attr(struct nfattr **, int, struct nfattr *, int);
 	nfnl_parse_attr((tb), (max), NFA_DATA((nfa)), NFA_PAYLOAD((nfa)))
 #define nfnl_nest(nlh, bufsize, type) 				\
 ({	struct nfattr *__start = NLMSG_TAIL(nlh);		\
-	nfnl_addattr_l(nlh, bufsize, type, NULL, 0); 	\
+	nfnl_addattr_l(nlh, bufsize, (NFNL_NFA_NEST | type), NULL, 0); 	\
 	__start; })
 #define nfnl_nest_end(nlh, tail) 				\
 ({	(tail)->nfa_len = (void *) NLMSG_TAIL(nlh) - (void *) tail; })
