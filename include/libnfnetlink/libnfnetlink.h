@@ -16,7 +16,6 @@
 #endif
 
 #include <sys/socket.h>	/* for sa_family_t */
-#include <linux/types.h>
 #include <linux/netlink.h>
 #include <libnfnetlink/linux_nfnetlink.h>
 
