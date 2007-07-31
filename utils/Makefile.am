@@ -1,6 +1,6 @@
 include $(top_srcdir)/Make_global.am
 
-bin_PROGRAMS = iftest
+noinst_PROGRAMS = iftest
 
 iftest_SOURCES = iftest.c
 iftest_LDADD = ../src/libnfnetlink.la
