@@ -1190,6 +1190,7 @@ int nfnl_handle_packet(struct nfnl_handle *h, char *buf, int len)
 			return -1;
 
 		len -= rlen;
+		buf += rlen;
 	}
 	return 0;
 }
