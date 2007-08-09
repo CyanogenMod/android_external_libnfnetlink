@@ -1129,6 +1129,7 @@ int nfnl_check_attributes(const struct nfnl_handle *h,
 					 * the kernel which we don't understand
 					 * yet. We have to silently ignore this
 					 * for the sake of future compatibility */
+					attr = NFA_NEXT(attr, attrlen);
 					continue;
 				}
 				nfa[flavor - 1] = attr;
