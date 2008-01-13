@@ -85,6 +85,7 @@ struct nfnl_handle {
 	u_int32_t		subscriptions;
 	u_int32_t		seq;
 	u_int32_t		dump;
+	u_int32_t		rcv_buffer_size;	/* for nfnl_catch */
 	struct nlmsghdr 	*last_nlhdr;
 	struct nfnl_subsys_handle subsys[NFNL_MAX_SUBSYS+1];
 };
@@ -184,6 +185,7 @@ struct nfnl_handle *nfnl_open(void)
 		goto err_close;
 	}
 	nfnlh->seq = time(NULL);
+	nfnlh->rcv_buffer_size = NFNL_BUFFSIZE;
 
 	/* don't set pid here, only first socket of process has real pid !!! 
 	 * binding to pid '0' will default */
@@ -208,6 +210,19 @@ err_close:
 err_free:
 	free(nfnlh);
 	return NULL;
+}
+
+/**
+ * nfnl_set_rcv_buffer_size - set the size of the receive buffer
+ * @h: libnfnetlink handler
+ * @size: buffer size
+ *
+ * This function sets the size of the receive buffer size, i.e. the size
+ * of the buffer used by nfnl_recv. Default value is 4096 bytes.
+ */
+void nfnl_set_rcv_buffer_size(struct nfnl_handle *h, unsigned int size)
+{
+	h->rcv_buffer_size = size;
 }
 
 /**
@@ -1455,52 +1470,11 @@ int nfnl_iterator_next(const struct nfnl_handle *h, struct nfnl_iterator *it)
 int nfnl_catch(struct nfnl_handle *h)
 {
 	int ret;
-	unsigned int size = NFNL_BUFFSIZE;
 
 	assert(h);
 
-	/*
-	 * Since nfqueue can send big packets, we don't know how big
-	 * must be the buffer that have to store the received data.
-	 */
-	{
-		unsigned char buf[size];
-		struct sockaddr_nl peer;
-		struct iovec iov = {
-			.iov_len = size,
-		};
-		struct msghdr msg = {
-			.msg_name = (void *) &peer,
-			.msg_namelen = sizeof(peer),
-			.msg_iov = &iov,
-			.msg_iovlen = 1,
-			.msg_control = NULL,
-			.msg_controllen = 0,
-			.msg_flags = 0
-		};
-
-		memset(&peer, 0, sizeof(peer));
-		peer.nl_family = AF_NETLINK;
-		iov.iov_base = buf;
-		iov.iov_len = size;
-
-retry:		ret = recvmsg(h->fd, &msg, MSG_PEEK);
-		if (ret == -1) {
-			/* interrupted syscall must retry */
-			if (errno == EINTR)
-				goto retry;
-			/* otherwise give up */
-			return -1;
-		}
-
-		if (msg.msg_flags & MSG_TRUNC)
-			/* maximum size of data received from netlink */
-			size = 65535;
-	}
-
-	/* now, receive data from netlink */
 	while (1) {
-		unsigned char buf[size];
+		unsigned char buf[h->rcv_buffer_size];
 
 		ret = nfnl_recv(h, buf, sizeof(buf));
 		if (ret == -1) {

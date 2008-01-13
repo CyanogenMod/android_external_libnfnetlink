@@ -56,6 +56,9 @@ extern struct nfnl_subsys_handle *nfnl_subsys_open(struct nfnl_handle *,
 						   unsigned int);
 extern void nfnl_subsys_close(struct nfnl_subsys_handle *);
 
+/* set receive buffer size (for nfnl_catch) */
+extern void nfnl_set_rcv_buffer_size(struct nfnl_handle *h, unsigned int size);
+
 /* sending of data */
 extern int nfnl_send(struct nfnl_handle *, struct nlmsghdr *);
 extern int nfnl_sendmsg(const struct nfnl_handle *, const struct msghdr *msg,
