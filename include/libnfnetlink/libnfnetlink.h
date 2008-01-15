@@ -173,7 +173,8 @@ extern int nfnl_parse_attr(struct nfattr **, int, struct nfattr *, int);
 extern void nfnl_build_nfa_iovec(struct iovec *iov, struct nfattr *nfa, 
 				 u_int16_t type, u_int32_t len,
 				 unsigned char *val);
-extern unsigned int nfnl_rcvbufsiz(struct nfnl_handle *h, unsigned int size);
+extern unsigned int nfnl_rcvbufsiz(const struct nfnl_handle *h, 
+				   unsigned int size);
 
 
 extern void nfnl_dump_packet(struct nlmsghdr *, int, char *);

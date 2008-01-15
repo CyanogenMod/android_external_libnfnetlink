@@ -958,7 +958,7 @@ void nfnl_build_nfa_iovec(struct iovec *iov, struct nfattr *nfa,
  *
  * This function returns the new size of the socket buffer.
  */
-unsigned int nfnl_rcvbufsiz(struct nfnl_handle *h, unsigned int size)
+unsigned int nfnl_rcvbufsiz(const struct nfnl_handle *h, unsigned int size)
 {
 	int status;
 	socklen_t socklen = sizeof(size);
