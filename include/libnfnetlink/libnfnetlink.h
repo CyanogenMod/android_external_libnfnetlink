@@ -195,7 +195,7 @@ int nlif_fd(struct nlif_handle *nlif_handle);
 int nlif_query(struct nlif_handle *nlif_handle);
 int nlif_catch(struct nlif_handle *nlif_handle);
 int nlif_index2name(struct nlif_handle *nlif_handle, 
-		    unsigned int index, 
+		    unsigned int if_index, 
 		    char *name);
 
 /* Pablo: What is the equivalence of be64_to_cpu in userspace?
