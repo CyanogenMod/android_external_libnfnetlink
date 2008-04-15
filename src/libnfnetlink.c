@@ -799,16 +799,16 @@ int nfnl_nfa_addattr_l(struct nfattr *nfa, int maxlen, int type,
 	assert(maxlen > 0);
 	assert(type >= 0);
 
-	if ((NFA_OK(nfa, nfa->nfa_len) + len) > maxlen) {
+	if (NFA_ALIGN(nfa->nfa_len) + len > maxlen) {
 		errno = ENOSPC;
 		return -1;
 	}
 
-	subnfa = (struct nfattr *)(((char *)nfa) + NFA_OK(nfa, nfa->nfa_len));
+	subnfa = (struct nfattr *)(((char *)nfa) + NFA_ALIGN(nfa->nfa_len));
 	subnfa->nfa_type = type;
 	subnfa->nfa_len = len;
 	memcpy(NFA_DATA(subnfa), data, alen);
-	nfa->nfa_len = (NLMSG_ALIGN(nfa->nfa_len) + len);
+	nfa->nfa_len = NFA_ALIGN(nfa->nfa_len) + len;
 
 	return 0;
 }
