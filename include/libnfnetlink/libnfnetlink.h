@@ -153,6 +153,10 @@ extern int nfnl_query(struct nfnl_handle *h, struct nlmsghdr *nlh);
 	 __ret;						\
 	 })
 
+#ifndef NLA_F_NESTED
+#define NLA_F_NESTED            (1 << 15)
+#endif
+
 /* nfnl attribute handling functions */
 extern int nfnl_addattr_l(struct nlmsghdr *, int, int, const void *, int);
 extern int nfnl_addattr16(struct nlmsghdr *, int, int, u_int16_t);
