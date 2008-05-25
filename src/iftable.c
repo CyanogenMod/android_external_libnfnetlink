@@ -1,9 +1,9 @@
 /* iftable - table of network interfaces
  *
  * (C) 2004 by Astaro AG, written by Harald Welte <hwelte@astaro.com>
+ * (C) 2008 by Pablo Neira Ayuso <pablo@netfilter.org>
  *
  * This software is Free Software and licensed under GNU GPLv2. 
- *
  */
 
 /* IFINDEX handling */
@@ -22,11 +22,10 @@
 
 #include <libnfnetlink/libnfnetlink.h>
 #include "rtnl.h"
+#include "linux_list.h"
 
-#define iftb_log(x, ...)
-
-struct ifindex_map {
-	struct ifindex_map *next;
+struct ifindex_node {
+	struct list_head head;
 
 	u_int32_t	index;
 	u_int32_t	type;
@@ -37,7 +36,7 @@ struct ifindex_map {
 };
 
 struct nlif_handle {
-	struct ifindex_map *ifindex_map[16];
+	struct list_head ifindex_hash[16];
 	struct rtnl_handle *rtnl_handle;
 	struct rtnl_handler ifadd_handler;
 	struct rtnl_handler ifdel_handler;
@@ -52,65 +51,55 @@ struct nlif_handle {
  */
 static int iftable_add(struct nlmsghdr *n, void *arg)
 {
-	unsigned int hash;
+	unsigned int hash, found = 0;
 	struct ifinfomsg *ifi_msg = NLMSG_DATA(n);
-	struct ifindex_map *im, **imp;
+	struct ifindex_node *this;
 	struct rtattr *cb[IFLA_MAX+1];
-	struct nlif_handle *nlif_handle = (struct nlif_handle *)arg;
+	struct nlif_handle *h = (struct nlif_handle *)arg;
 
 	if (n->nlmsg_type != RTM_NEWLINK)
 		return -1;
 
-	if (n->nlmsg_len < NLMSG_LENGTH(sizeof(ifi_msg))) {
-		iftb_log(LOG_ERROR, "short message (%u < %u)",
-			 n->nlmsg_len, NLMSG_LENGTH(sizeof(ifi_msg)));
+	if (n->nlmsg_len < NLMSG_LENGTH(sizeof(ifi_msg)))
 		return -1;
-	}
 
-	memset(&cb, 0, sizeof(cb));
 	rtnl_parse_rtattr(cb, IFLA_MAX, IFLA_RTA(ifi_msg), IFLA_PAYLOAD(n));
-	if (!cb[IFLA_IFNAME]) {
-		iftb_log(LOG_ERROR, "interface without name?");
-		return -1;
-	}
 
-	hash = ifi_msg->ifi_index&0xF;
-	for (imp = &((nlif_handle->ifindex_map)[hash]); 
-	     (im=*imp)!=NULL; imp = &im->next) {
-		if (im->index == ifi_msg->ifi_index) {
-			iftb_log(LOG_DEBUG,
-				 "updating iftable (ifindex=%u)", im->index);
+	if (!cb[IFLA_IFNAME])
+		return -1;
+
+	hash = ifi_msg->ifi_index & 0xF;
+	list_for_each_entry(this, &h->ifindex_hash[hash], head) {
+		if (this->index == ifi_msg->ifi_index) {
+			found = 1;
 			break;
 		}
 	}
 
-	if (!im) {
-		im = malloc(sizeof(*im));
-		if (!im) {
-			iftb_log(LOG_ERROR,
-				 "ENOMEM while allocating ifindex_map");
-			return 0;
-		}
-		im->next = *imp;
-		im->index = ifi_msg->ifi_index;
-		*imp = im;
-		iftb_log(LOG_DEBUG, "creating new iftable (ifindex=%u)",
-			 im->index);
+	if (!found) {
+		this = malloc(sizeof(*this));
+		if (!this)
+			return -1;
+
+		this->index = ifi_msg->ifi_index;
 	}
-	
-	im->type = ifi_msg->ifi_type;
-	im->flags = ifi_msg->ifi_flags;
+
+	this->type = ifi_msg->ifi_type;
+	this->flags = ifi_msg->ifi_flags;
 	if (cb[IFLA_ADDRESS]) {
 		unsigned int alen;
-		im->alen = alen = RTA_PAYLOAD(cb[IFLA_ADDRESS]);
-		if (alen > sizeof(im->addr))
-			alen = sizeof(im->addr);
-		memcpy(im->addr, RTA_DATA(cb[IFLA_ADDRESS]), alen);
+		this->alen = alen = RTA_PAYLOAD(cb[IFLA_ADDRESS]);
+		if (alen > sizeof(this->addr))
+			alen = sizeof(this->addr);
+		memcpy(this->addr, RTA_DATA(cb[IFLA_ADDRESS]), alen);
 	} else {
-		im->alen = 0;
-		memset(im->addr, 0, sizeof(im->addr));
+		this->alen = 0;
+		memset(this->addr, 0, sizeof(this->addr));
 	}
-	strcpy(im->name, RTA_DATA(cb[IFLA_IFNAME]));
+	strcpy(this->name, RTA_DATA(cb[IFLA_IFNAME]));
+
+	list_add(&this->head, &h->ifindex_hash[hash]);
+
 	return 1;
 }
 
@@ -125,46 +114,28 @@ static int iftable_del(struct nlmsghdr *n, void *arg)
 {
 	struct ifinfomsg *ifi_msg = NLMSG_DATA(n);
 	struct rtattr *cb[IFLA_MAX+1];
-	struct nlif_handle *nlif_handle = (struct nlif_handle *)arg;
-	struct ifindex_map *im, *ima, **imp;
+	struct nlif_handle *h = (struct nlif_handle *)arg;
+	struct ifindex_node *this, *tmp;
 	unsigned int hash;
 
-	if (n->nlmsg_type != RTM_DELLINK) {
-		iftb_log(LOG_ERROR,
-			 "called with wrong nlmsg_type %u", n->nlmsg_type);
+	if (n->nlmsg_type != RTM_DELLINK)
 		return -1;
-	}
 
-	if (n->nlmsg_len < NLMSG_LENGTH(sizeof(ifi_msg))) {
-		iftb_log(LOG_ERROR, "short message (%u < %u)",
-			 n->nlmsg_len, NLMSG_LENGTH(sizeof(ifi_msg)));
+	if (n->nlmsg_len < NLMSG_LENGTH(sizeof(ifi_msg)))
 		return -1;
-	}
 
-	memset(&cb, 0, sizeof(cb));
 	rtnl_parse_rtattr(cb, IFLA_MAX, IFLA_RTA(ifi_msg), IFLA_PAYLOAD(n));
 
-	/* \todo Really suppress entry */
-	hash = ifi_msg->ifi_index&0xF;
-	for (ima = NULL, imp = &((nlif_handle->ifindex_map)[hash]); 
-	     (im=*imp)!=NULL; imp = &im->next, ima=im) {
-		if (im->index == ifi_msg->ifi_index) {
-			iftb_log(LOG_DEBUG,
-				 "deleting iftable (ifindex=%u)", im->index);
-			break;
+	hash = ifi_msg->ifi_index & 0xF;
+	list_for_each_entry_safe(this, tmp, &h->ifindex_hash[hash], head) {
+		if (this->index == ifi_msg->ifi_index) {
+			list_del(&this->head);
+			free(this);
+			return 1;
 		}
 	}
 
-	if (!im)
-		return 0;
-
-	if (ima)
-		ima->next = *imp;
-	else
-		(nlif_handle->ifindex_map)[hash] = *imp;
-	free(im);
-
-	return 1;
+	return 0;
 }
 
 /** Get the name for an ifindex
@@ -174,36 +145,42 @@ static int iftable_del(struct nlmsghdr *n, void *arg)
  * \param name interface name, pass a buffer of IFNAMSIZ size
  * \return -1 on error, 1 on success 
  */
-int nlif_index2name(struct nlif_handle *nlif_handle, 
+int nlif_index2name(struct nlif_handle *h, 
 		    unsigned int index,
 		    char *name)
 {
-	struct ifindex_map *im;
+	unsigned int hash;
+	struct ifindex_node *this;
 
-	assert(nlif_handle != NULL);
+	assert(h != NULL);
 	assert(name != NULL);
 
 	if (index == 0) {
 		strcpy(name, "*");
 		return 1;
 	}
-	for (im = (nlif_handle->ifindex_map)[index&0xF]; im; im = im->next)
-		if (im->index == index) {
-			strcpy(name, im->name);
+
+	hash = index & 0xF;
+	list_for_each_entry(this, &h->ifindex_hash[hash], head) {
+		if (this->index == index) {
+			strcpy(name, this->name);
 			return 1;
 		}
+	}
 
 	errno = ENOENT;
 	return -1;
 }
 
-static int iftable_up(struct nlif_handle *nlif_handle, unsigned int index)
+static int iftable_up(struct nlif_handle *h, unsigned int index)
 {
-	struct ifindex_map *im;
+	unsigned int hash;
+	struct ifindex_node *this;
 
-	for (im = nlif_handle->ifindex_map[index&0xF]; im; im = im->next) {
-		if (im->index == index) {
-			if (im->flags & IFF_UP)
+	hash = index & 0xF;
+	list_for_each_entry(this, &h->ifindex_hash[hash], head) {
+		if (this->index == index) {
+			if (this->flags & IFF_UP)
 				return 1;
 			else
 				return 0;
@@ -221,11 +198,15 @@ static int iftable_up(struct nlif_handle *nlif_handle, unsigned int index)
  */
 struct nlif_handle *nlif_open(void)
 {
+	int i;
 	struct nlif_handle *h;
 
 	h = calloc(1,  sizeof(struct nlif_handle));
 	if (h == NULL)
 		goto err;
+
+	for (i=0; i<16; i++)
+		INIT_LIST_HEAD(&h->ifindex_hash[i]);
 
 	h->ifadd_handler.nlmsg_type = RTM_NEWLINK;
 	h->ifadd_handler.handlefn = iftable_add;
@@ -262,11 +243,22 @@ err:
  */
 void nlif_close(struct nlif_handle *h)
 {
+	int i;
+	struct ifindex_node *this, *tmp;
+
 	assert(h != NULL);
 
 	rtnl_handler_unregister(h->rtnl_handle, &h->ifadd_handler);
 	rtnl_handler_unregister(h->rtnl_handle, &h->ifdel_handler);
 	rtnl_close(h->rtnl_handle);
+
+	for (i=0; i<16; i++) {
+		list_for_each_entry_safe(this, tmp, &h->ifindex_hash[i], head) {
+			list_del(&this->head);
+			free(this);
+		}
+	}
+
 	free(h);
 	h = NULL; /* bugtrap */
 }
@@ -276,12 +268,12 @@ void nlif_close(struct nlif_handle *h)
  * \param nlif_handle A pointer to a ::nlif_handle created
  * \return 0 if OK
  */
-int nlif_catch(struct nlif_handle *nlif_handle)
+int nlif_catch(struct nlif_handle *h)
 {
-	assert(nlif_handle != NULL);
+	assert(h != NULL);
 
-	if (nlif_handle->rtnl_handle)
-		return rtnl_receive(nlif_handle->rtnl_handle);
+	if (h->rtnl_handle)
+		return rtnl_receive(h->rtnl_handle);
 
 	return -1;
 }
@@ -305,12 +297,12 @@ int nlif_query(struct nlif_handle *h)
  * \param nlif_handle A pointer to a ::nlif_handle created
  * \return The fd or -1 if there's an error
  */
-int nlif_fd(struct nlif_handle *nlif_handle)
+int nlif_fd(struct nlif_handle *h)
 {
-	assert(nlif_handle != NULL);
+	assert(h != NULL);
 
-	if (nlif_handle->rtnl_handle)
-		return nlif_handle->rtnl_handle->rtnl_fd;
+	if (h->rtnl_handle)
+		return h->rtnl_handle->rtnl_fd;
 
 	return -1;
 }

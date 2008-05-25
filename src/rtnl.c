@@ -91,9 +91,10 @@ int rtnl_handler_unregister(struct rtnl_handle *rtnl_handle,
 	return 0;
 }
 
-/* rtnl_arse_rtattr - parse rtattr */
 int rtnl_parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 {
+	memset(tb, 0, sizeof(struct rtattr *) * max);
+
 	while (RTA_OK(rta, len)) {
 		if (rta->rta_type <= max)
 			tb[rta->rta_type] = rta;
