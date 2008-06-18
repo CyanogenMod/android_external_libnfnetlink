@@ -528,7 +528,7 @@ int nfnl_listen(struct nfnl_handle *nfnlh,
 			       void *), void *jarg)
 {
 	struct sockaddr_nl nladdr;
-	char buf[NFNL_BUFFSIZE];
+	char buf[NFNL_BUFFSIZE] __attribute__ ((aligned));
 	struct iovec iov;
 	int remain;
 	struct nlmsghdr *h;
@@ -637,7 +637,7 @@ int nfnl_talk(struct nfnl_handle *nfnlh, struct nlmsghdr *n, pid_t peer,
 	      int (*junk)(struct sockaddr_nl *, struct nlmsghdr *n, void *),
 	      void *jarg)
 {
-	char buf[NFNL_BUFFSIZE];
+	char buf[NFNL_BUFFSIZE] __attribute__ ((aligned));
 	struct sockaddr_nl nladdr;
 	struct nlmsghdr *h;
 	unsigned int seq;
@@ -1474,7 +1474,8 @@ int nfnl_catch(struct nfnl_handle *h)
 	assert(h);
 
 	while (1) {
-		unsigned char buf[h->rcv_buffer_size];
+		unsigned char buf[h->rcv_buffer_size]
+			__attribute__ ((aligned));
 
 		ret = nfnl_recv(h, buf, sizeof(buf));
 		if (ret == -1) {
