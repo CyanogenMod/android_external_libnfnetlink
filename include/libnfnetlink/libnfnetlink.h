@@ -31,6 +31,10 @@
 
 #define NFNL_BUFFSIZE		8192
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct nfnlhdr {
 	struct nlmsghdr nlh;
 	struct nfgenmsg nfmsg;
@@ -201,6 +205,10 @@ int nlif_catch(struct nlif_handle *nlif_handle);
 int nlif_index2name(struct nlif_handle *nlif_handle, 
 		    unsigned int if_index, 
 		    char *name);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 /* Pablo: What is the equivalence of be64_to_cpu in userspace?
  * 
