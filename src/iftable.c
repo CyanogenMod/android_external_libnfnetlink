@@ -172,23 +172,6 @@ int nlif_index2name(struct nlif_handle *h,
 	return -1;
 }
 
-static int iftable_up(struct nlif_handle *h, unsigned int index)
-{
-	unsigned int hash;
-	struct ifindex_node *this;
-
-	hash = index & 0xF;
-	list_for_each_entry(this, &h->ifindex_hash[hash], head) {
-		if (this->index == index) {
-			if (this->flags & IFF_UP)
-				return 1;
-			else
-				return 0;
-		}
-	}
-	return -1;
-}
-
 /** Initialize interface table
  *
  * Initialize rtnl interface and interface table
