@@ -98,7 +98,8 @@ static int iftable_add(struct nlmsghdr *n, void *arg)
 	}
 	strcpy(this->name, RTA_DATA(cb[IFLA_IFNAME]));
 
-	list_add(&this->head, &h->ifindex_hash[hash]);
+	if (!found)
+		list_add(&this->head, &h->ifindex_hash[hash]);
 
 	return 1;
 }
