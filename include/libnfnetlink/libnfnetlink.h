@@ -205,6 +205,9 @@ int nlif_catch(struct nlif_handle *nlif_handle);
 int nlif_index2name(struct nlif_handle *nlif_handle, 
 		    unsigned int if_index, 
 		    char *name);
+int nlif_get_ifflags(const struct nlif_handle *h,
+		     unsigned int index,
+		     unsigned int *flags);
 
 #ifdef __cplusplus
 } /* extern "C" */

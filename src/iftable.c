@@ -173,6 +173,39 @@ int nlif_index2name(struct nlif_handle *h,
 	return -1;
 }
 
+/** Get the flags for an ifindex
+ *
+ * \param nlif_handle A pointer to a ::nlif_handle created
+ * \param index ifindex to be resolved
+ * \param flags pointer to variable used to store the interface flags
+ * \return -1 on error, 1 on success 
+ */
+int nlif_get_ifflags(const struct nlif_handle *h,
+		     unsigned int index,
+		     unsigned int *flags)
+{
+	unsigned int hash;
+	struct ifindex_node *this;
+
+	assert(h != NULL);
+	assert(flags != NULL);
+
+	if (index == 0) {
+		errno = ENOENT;
+		return -1;
+	}
+
+	hash = index & 0xF;
+	list_for_each_entry(this, &h->ifindex_hash[hash], head) {
+		if (this->index == index) {
+			*flags = this->flags;
+			return 1;
+		}
+	}
+	errno = ENOENT;
+	return -1;
+}
+
 /** Initialize interface table
  *
  * Initialize rtnl interface and interface table
