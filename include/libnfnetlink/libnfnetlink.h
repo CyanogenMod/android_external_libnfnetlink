@@ -60,6 +60,10 @@ extern struct nfnl_subsys_handle *nfnl_subsys_open(struct nfnl_handle *,
 						   unsigned int);
 extern void nfnl_subsys_close(struct nfnl_subsys_handle *);
 
+/* set and unset sequence tracking */
+void nfnl_set_sequence_tracking(struct nfnl_handle *h);
+void nfnl_unset_sequence_tracking(struct nfnl_handle *h);
+
 /* set receive buffer size (for nfnl_catch) */
 extern void nfnl_set_rcv_buffer_size(struct nfnl_handle *h, unsigned int size);
 

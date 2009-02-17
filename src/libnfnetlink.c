@@ -78,6 +78,9 @@ struct nfnl_subsys_handle {
 };
 
 #define		NFNL_MAX_SUBSYS			16 /* enough for now */
+
+#define NFNL_F_SEQTRACK_ENABLED		(1 << 0)
+
 struct nfnl_handle {
 	int			fd;
 	struct sockaddr_nl	local;
@@ -86,6 +89,7 @@ struct nfnl_handle {
 	u_int32_t		seq;
 	u_int32_t		dump;
 	u_int32_t		rcv_buffer_size;	/* for nfnl_catch */
+	u_int32_t		flags;
 	struct nlmsghdr 	*last_nlhdr;
 	struct nfnl_subsys_handle subsys[NFNL_MAX_SUBSYS+1];
 };
@@ -202,6 +206,8 @@ struct nfnl_handle *nfnl_open(void)
 		errno = EINVAL;
 		goto err_close;
 	}
+	/* sequence tracking enabled by default */
+	nfnlh->flags |= NFNL_F_SEQTRACK_ENABLED;
 
 	return nfnlh;
 
@@ -210,6 +216,24 @@ err_close:
 err_free:
 	free(nfnlh);
 	return NULL;
+}
+
+/**
+ * nfnl_set_sequence_tracking - set netlink sequence tracking
+ * @h: nfnetlink handler
+ */
+void nfnl_set_sequence_tracking(struct nfnl_handle *h)
+{
+	h->flags |= NFNL_F_SEQTRACK_ENABLED;
+}
+
+/**
+ * nfnl_unset_sequence_tracking - set netlink sequence tracking
+ * @h: nfnetlink handler
+ */
+void nfnl_unset_sequence_tracking(struct nfnl_handle *h)
+{
+	h->flags &= ~NFNL_F_SEQTRACK_ENABLED;
 }
 
 /**
@@ -418,11 +442,16 @@ void nfnl_fill_hdr(struct nfnl_subsys_handle *ssh,
 	nlh->nlmsg_type = (ssh->subsys_id<<8)|msg_type;
 	nlh->nlmsg_flags = msg_flags;
 	nlh->nlmsg_pid = 0;
-	nlh->nlmsg_seq = ++ssh->nfnlh->seq;
 
-	/* check for wraparounds: assume that seqnum 0 is only used by events */
-	if (!ssh->nfnlh->seq)
-		nlh->nlmsg_seq = ssh->nfnlh->seq = time(NULL);
+	if (ssh->nfnlh->flags & NFNL_F_SEQTRACK_ENABLED) {
+		nlh->nlmsg_seq = ++ssh->nfnlh->seq;
+		/* kernel uses sequence number zero for events */
+		if (!ssh->nfnlh->seq)
+			nlh->nlmsg_seq = ssh->nfnlh->seq = time(NULL);
+	} else {
+		/* unset sequence number, ignore it */
+		nlh->nlmsg_seq = 0;
+	}
 
 	nfg->nfgen_family = family;
 	nfg->version = NFNETLINK_V0;
