@@ -77,15 +77,15 @@ extern int nfnl_sendiov(const struct nfnl_handle *nfnlh,
 extern void nfnl_fill_hdr(struct nfnl_subsys_handle *, struct nlmsghdr *,
 			  unsigned int, u_int8_t, u_int16_t, u_int16_t,
 			  u_int16_t);
-extern int nfnl_talk(struct nfnl_handle *, struct nlmsghdr *, pid_t,
-                     unsigned, struct nlmsghdr *,
-                     int (*)(struct sockaddr_nl *, struct nlmsghdr *, void *),
-                     void *);
+extern __attribute__((deprecated)) int
+nfnl_talk(struct nfnl_handle *, struct nlmsghdr *, pid_t,
+          unsigned, struct nlmsghdr *,
+          int (*)(struct sockaddr_nl *, struct nlmsghdr *, void *), void *);
 
 /* simple challenge/response */
-extern int nfnl_listen(struct nfnl_handle *,
-                      int (*)(struct sockaddr_nl *, struct nlmsghdr *, void *),
-                      void *);
+extern __attribute__((deprecated)) int
+nfnl_listen(struct nfnl_handle *,
+            int (*)(struct sockaddr_nl *, struct nlmsghdr *, void *), void *);
 
 /* receiving */
 extern ssize_t nfnl_recv(const struct nfnl_handle *h, unsigned char *buf, size_t len);
