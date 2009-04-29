@@ -214,8 +214,7 @@ struct rtnl_handle *rtnl_open(void)
 
 	memset(&h->rtnl_local, 0, sizeof(h->rtnl_local));
 	h->rtnl_local.nl_family = AF_NETLINK;
-	h->rtnl_local.nl_groups =
-		RTMGRP_IPV4_ROUTE|RTMGRP_IPV4_IFADDR|RTMGRP_LINK;
+	h->rtnl_local.nl_groups = RTMGRP_LINK;
 	if (bind(h->rtnl_fd, (struct sockaddr *) &h->rtnl_local, addrlen) < 0) {
 		rtnl_log(LOG_ERROR, "unable to bind rtnetlink socket");
 		goto err_close;
