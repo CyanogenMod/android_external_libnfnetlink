@@ -50,6 +50,7 @@ struct nfnl_handle;
 struct nfnl_subsys_handle;
 
 extern int nfnl_fd(struct nfnl_handle *h);
+extern unsigned int nfnl_portid(const struct nfnl_handle *h);
 
 /* get a new library handle */
 extern struct nfnl_handle *nfnl_open(void);

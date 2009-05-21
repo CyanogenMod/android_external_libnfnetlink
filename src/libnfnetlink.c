@@ -131,6 +131,16 @@ int nfnl_fd(struct nfnl_handle *h)
 	return h->fd;
 }
 
+/**
+ * nfnl_portid - returns the Netlink port ID of this socket
+ * @h: nfnetlink handler
+ */
+unsigned int nfnl_portid(const struct nfnl_handle *h)
+{
+	assert(h);
+	return h->local.nl_pid;
+}
+
 static int recalc_rebind_subscriptions(struct nfnl_handle *nfnlh)
 {
 	int i, err;
