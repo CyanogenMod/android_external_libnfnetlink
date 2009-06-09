@@ -23,6 +23,18 @@
 #define NETLINK_NETFILTER 12
 #endif
 
+#ifndef SOL_NETLINK
+#define SOL_NETLINK	270
+#endif
+
+#ifndef NETLINK_BROADCAST_SEND_ERROR
+#define NETLINK_BROADCAST_SEND_ERROR 4
+#endif
+
+#ifndef NETLINK_NO_ENOBUFS
+#define NETLINK_NO_ENOBUFS 5
+#endif
+
 #define NLMSG_TAIL(nlh) \
 	(((void *) (nlh)) + NLMSG_ALIGN((nlh)->nlmsg_len))
 
