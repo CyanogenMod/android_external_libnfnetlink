@@ -180,6 +180,7 @@ extern int nfnl_query(struct nfnl_handle *h, struct nlmsghdr *nlh);
 
 /* nfnl attribute handling functions */
 extern int nfnl_addattr_l(struct nlmsghdr *, int, int, const void *, int);
+extern int nfnl_addattr8(struct nlmsghdr *, int, int, u_int8_t);
 extern int nfnl_addattr16(struct nlmsghdr *, int, int, u_int16_t);
 extern int nfnl_addattr32(struct nlmsghdr *, int, int, u_int32_t);
 extern int nfnl_nfa_addattr_l(struct nfattr *, int, int, const void *, int);

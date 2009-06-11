@@ -853,6 +853,23 @@ int nfnl_nfa_addattr_l(struct nfattr *nfa, int maxlen, int type,
 }
 
 /**
+ * nfnl_addattr8 - Add u_int8_t attribute to nlmsghdr
+ *
+ * @n: netlink message header to which attribute is to be added
+ * @maxlen: maximum length of netlink message header
+ * @type: type of new attribute
+ * @data: content of new attribute
+ */
+int nfnl_addattr8(struct nlmsghdr *n, int maxlen, int type, u_int8_t data)
+{
+	assert(n);
+	assert(maxlen > 0);
+	assert(type >= 0);
+
+	return nfnl_addattr_l(n, maxlen, type, &data, sizeof(data));
+}
+
+/**
  * nfnl_nfa_addattr16 - Add u_int16_t attribute to struct nfattr 
  *
  * @nfa: struct nfattr
