@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to create configure.
 
-AC_INIT(libnfnetlink, 0.0.41)
+AC_INIT(libnfnetlink, 1.0.0)
 
 AC_CANONICAL_SYSTEM
 
