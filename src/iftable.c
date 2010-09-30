@@ -245,7 +245,7 @@ struct nlif_handle *nlif_open(void)
 	return h;
 
 err_unregister:
-	rtnl_handler_unregister(h->rtnl_handle, &h->ifdel_handler);
+	rtnl_handler_unregister(h->rtnl_handle, &h->ifadd_handler);
 err_close:
 	rtnl_close(h->rtnl_handle);
 	free(h);
