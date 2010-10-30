@@ -1,5 +1,7 @@
 include $(top_srcdir)/Make_global.am
 
+ACLOCAL_AMFLAGS = -I m4
+
 EXTRA_DIST = $(man_MANS)
 
 SUBDIRS = src include utils
