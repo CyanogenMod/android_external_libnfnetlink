@@ -22,4 +22,6 @@ dnl--------------------------------
 
 
 dnl Output the makefile
-AC_OUTPUT(Makefile src/Makefile include/Makefile include/libnfnetlink/Makefile utils/Makefile libnfnetlink.pc)
+AC_CONFIG_FILES([Makefile src/Makefile include/Makefile
+	include/libnfnetlink/Makefile utils/Makefile libnfnetlink.pc])
+AC_OUTPUT
