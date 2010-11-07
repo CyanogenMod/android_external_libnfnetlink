@@ -38,6 +38,11 @@ Please report all libnfnetlink bugs to https://bugzilla.netfilter.org/, using
 the "libnfnetlink" Product.
 
 
+License
+
+This library is released under GPLv2+.
+
+
 Where do I get support?
 
 The netfilter@lists.netfilter.org and netfilter-devel@lists.netfilter.org
