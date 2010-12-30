@@ -10,7 +10,6 @@ AC_PROG_CC
 AC_EXEEXT
 AC_DISABLE_STATIC
 AM_PROG_LIBTOOL
-AC_SUBST(LIBTOOL_DEPS)
 
 case "$host" in 
 *-*-linux*) ;;
