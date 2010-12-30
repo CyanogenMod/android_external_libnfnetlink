@@ -7,7 +7,7 @@
 
 #include <libnfnetlink/libnfnetlink.h>
 
-int main()
+int main(void)
 {
 	int i;
 	struct nlif_handle *h;
@@ -33,4 +33,5 @@ int main()
 	}
 
 	nlif_close(h);
+	return EXIT_SUCCESS;
 }
