@@ -1,7 +1,5 @@
 include $(top_srcdir)/Make_global.am
 
-AM_CFLAGS = -Wall
-
 lib_LTLIBRARIES = libnfnetlink.la
 
 libnfnetlink_la_LDFLAGS = -Wc,-nostartfiles	\
