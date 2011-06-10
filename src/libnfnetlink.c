@@ -477,12 +477,12 @@ nfnl_parse_hdr(const struct nfnl_handle *nfnlh,
 
 	if (nlh->nlmsg_len == NLMSG_LENGTH(sizeof(struct nfgenmsg))) {
 		if (genmsg)
-			*genmsg = (void *)nlh + sizeof(nlh);
+			*genmsg = (void *)nlh + sizeof(*nlh);
 		return NULL;
 	}
 
 	if (genmsg)
-		*genmsg = (void *)nlh + sizeof(nlh);
+		*genmsg = (void *)nlh + sizeof(*nlh);
 
 	return (void *)nlh + NLMSG_LENGTH(sizeof(struct nfgenmsg));
 }
