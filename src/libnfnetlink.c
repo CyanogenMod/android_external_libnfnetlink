@@ -779,10 +779,8 @@ cont:
 			nfnl_error("Messages truncated\n");
 			continue;
 		}
-		if (status) {
+		if (status)
 			nfnl_error("Remnant of size %d\n", status);
-			exit(1);
-		}
 	}
 }
 
