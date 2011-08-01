@@ -8,6 +8,7 @@ Makefile.in
 
 /aclocal.m4
 /autom4te.cache
+/compile
 /config.*
 /configure
 /depcomp
@@ -15,5 +16,6 @@ Makefile.in
 /libtool
 /ltmain.sh
 /missing
+/stamp-h1
 
 /*.pc
