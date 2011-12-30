@@ -1,14 +1,15 @@
 /* libnfnetlink.c: generic library for communication with netfilter
  *
  * (C) 2002-2006 by Harald Welte <laforge@gnumonks.org>
- * (C) 2006 by Pablo Neira Ayuso <pablo@netfilter.org>
+ * (C) 2006-2011 by Pablo Neira Ayuso <pablo@netfilter.org>
  *
  * Based on some original ideas from Jay Schulist <jschlst@samba.org>
  *
  * Development of this code funded by Astaro AG (http://www.astaro.com)
  *
- * this software may be used and distributed according to the terms
- * of the gnu general public license, incorporated herein by reference.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as published
+ * by the Free Software Foundation.
  *
  * 2005-09-14 Pablo Neira Ayuso <pablo@netfilter.org>: 
  * 	Define structure nfnlhdr
