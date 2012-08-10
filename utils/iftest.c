@@ -28,8 +28,9 @@ int main(void)
 			continue;
 		if (nlif_get_ifflags(h, i, &flags) == -1)
 			continue;
-		printf("index (%d) is %s (%s)\n", i, name,
-			flags & IFF_RUNNING ? "RUNNING" : "NOT RUNNING");
+		printf("index (%d) is %s (%s) (%s)\n", i, name,
+			flags & IFF_RUNNING ? "RUNNING" : "NOT RUNNING",
+			flags & IFF_UP ? "UP" : "DOWN");
 	}
 
 	nlif_close(h);
