@@ -174,7 +174,6 @@ struct nfnl_handle *nfnl_open(void)
 {
 	struct nfnl_handle *nfnlh;
 	unsigned int addr_len;
-	int err;
 
 	nfnlh = malloc(sizeof(*nfnlh));
 	if (!nfnlh)
@@ -189,8 +188,7 @@ struct nfnl_handle *nfnl_open(void)
 	nfnlh->peer.nl_family = AF_NETLINK;
 
 	addr_len = sizeof(nfnlh->local);
-	err = getsockname(nfnlh->fd, (struct sockaddr *)&nfnlh->local, 
-			  &addr_len);
+	getsockname(nfnlh->fd, (struct sockaddr *)&nfnlh->local, &addr_len);
 	if (addr_len != sizeof(nfnlh->local)) {
 		errno = EINVAL;
 		goto err_close;
@@ -211,8 +209,7 @@ struct nfnl_handle *nfnl_open(void)
 
 	/* use getsockname to get the netlink pid that the kernel assigned us */
 	addr_len = sizeof(nfnlh->local);
-	err = getsockname(nfnlh->fd, (struct sockaddr *)&nfnlh->local, 
-			  &addr_len);
+	getsockname(nfnlh->fd, (struct sockaddr *)&nfnlh->local, &addr_len);
 	if (addr_len != sizeof(nfnlh->local)) {
 		errno = EINVAL;
 		goto err_close;
