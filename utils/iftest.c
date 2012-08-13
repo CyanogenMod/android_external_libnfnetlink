@@ -35,10 +35,8 @@ int main(int argc, char *argv[])
 	idx = if_nametoindex(argv[1]);
 
 	/* Superfluous: just to make sure nlif_index2name is working fine */
-	if (nlif_index2name(h, idx, name) == -1) {
+	if (nlif_index2name(h, idx, name) == -1)
 		fprintf(stderr, "Cannot translate device idx=%u\n", idx);
-		exit(EXIT_FAILURE);
-	}
 
 	if (nlif_get_ifflags(h, idx, &flags) == -1) {
 		fprintf(stderr, "Cannot get flags for device `%s'\n", argv[1]);
