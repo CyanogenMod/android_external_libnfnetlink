@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <net/if.h>
 
@@ -25,7 +26,11 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	nlif_query(h);
+	if (nlif_query(h) == -1) {
+		fprintf(stderr, "failed query to retrieve interfaces: %s\n",
+			strerror(errno));
+		exit(EXIT_FAILURE);
+	}
 
 	idx = if_nametoindex(argv[1]);
 
