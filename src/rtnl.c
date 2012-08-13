@@ -193,6 +193,15 @@ int rtnl_receive(struct rtnl_handle *rtnl_handle)
 	return 1;
 }
 
+int rtnl_receive_multi(struct rtnl_handle *rtnl_handle)
+{
+	while (1) {
+		if (rtnl_receive(rtnl_handle) <= 0)
+			break;
+	}
+	return 1;
+}
+
 /* rtnl_open - constructor of rtnetlink module */
 struct rtnl_handle *rtnl_open(void)
 {

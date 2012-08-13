@@ -295,6 +295,16 @@ int nlif_catch(struct nlif_handle *h)
 	return -1;
 }
 
+static int nlif_catch_multi(struct nlif_handle *h)
+{
+	assert(h != NULL);
+
+	if (h->rtnl_handle)
+		return rtnl_receive_multi(h->rtnl_handle);
+
+	return -1;
+}
+
 /** 
  * nlif_query - request a dump of interfaces available in the system
  * @h: pointer to a valid nlif_handler
@@ -306,7 +316,7 @@ int nlif_query(struct nlif_handle *h)
 	if (rtnl_dump_type(h->rtnl_handle, RTM_GETLINK) < 0)
 		return -1;
 
-	return nlif_catch(h);
+	return nlif_catch_multi(h);
 }
 
 /** Returns socket descriptor for the netlink socket
