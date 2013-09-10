@@ -18,7 +18,7 @@ AC_DISABLE_STATIC
 AM_PROG_LIBTOOL
 
 case "$host" in 
-*-*-linux*) ;;
+*-*-linux* | *-*-uclinux*) ;;
 *) AC_MSG_ERROR([Linux only, dude!]);;
 esac
 
